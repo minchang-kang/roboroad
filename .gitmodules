@@ -1,6 +1,3 @@
-[submodule "3rdparty/ur_rtde"]
-	path = 3rdparty/ur_rtde
-	url = https://github.com/UniversalRobots/RTDE_Python_Client_Library.git
 [submodule "3rdparty/DynamixelSDK"]
 	path = 3rdparty/DynamixelSDK
 	url = https://github.com/ROBOTIS-GIT/DynamixelSDK.git
