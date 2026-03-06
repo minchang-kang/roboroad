@@ -3,6 +3,20 @@ project(roboroad)
 
 set(CMAKE_CXX_STANDARD 17)
 
+# ─── Xenomai (Alchemy API) ──────────────────────────
+execute_process(
+    COMMAND xeno-config --skin=alchemy --cflags
+    OUTPUT_VARIABLE XENOMAI_CFLAGS
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+execute_process(
+    COMMAND xeno-config --skin=alchemy --ldflags
+    OUTPUT_VARIABLE XENOMAI_LDFLAGS
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+separate_arguments(XENOMAI_CFLAGS_LIST UNIX_COMMAND "${XENOMAI_CFLAGS}")
+separate_arguments(XENOMAI_LDFLAGS_LIST UNIX_COMMAND "${XENOMAI_LDFLAGS}")
+
 # ─── ur_rtde ─────────────────────────────────────────
 add_subdirectory(3rdparty/ur_rtde)
 
@@ -20,11 +34,6 @@ set(DYNAMIXEL_SRC
     3rdparty/DynamixelSDK/c++/src/dynamixel_sdk/port_handler_linux.cpp
     3rdparty/DynamixelSDK/c++/src/dynamixel_sdk/protocol1_packet_handler.cpp
     3rdparty/DynamixelSDK/c++/src/dynamixel_sdk/protocol2_packet_handler.cpp
-    3rdparty/DynamixelSDK/c++/src/dynamixel_easy_sdk/connector.cpp
-    3rdparty/DynamixelSDK/c++/src/dynamixel_easy_sdk/control_table.cpp
-    3rdparty/DynamixelSDK/c++/src/dynamixel_easy_sdk/motor.cpp
-    3rdparty/DynamixelSDK/c++/src/dynamixel_easy_sdk/dynamixel_error.cpp
-    3rdparty/DynamixelSDK/c++/src/dynamixel_easy_sdk/group_executor.cpp
 )
 
 # ─── 소스 파일 ──────────────────────────────────────
@@ -33,12 +42,16 @@ add_executable(${PROJECT_NAME}
     ${DYNAMIXEL_SRC}
 )
 
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    BUILD_RPATH "/usr/xenomai/lib"
+    INSTALL_RPATH "/usr/xenomai/lib"
+)
+
 # ─── include 경로 ────────────────────────────────────
 target_include_directories(${PROJECT_NAME} PRIVATE
     src/
     3rdparty/DynamixelSDK/c++/include
     3rdparty/DynamixelSDK/c++/include/dynamixel_sdk
-    3rdparty/DynamixelSDK/c++/include/dynamixel_easy_sdk
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
@@ -46,8 +59,12 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
     _GNU_SOURCE
     CONTROL_TABLE_PATH="/usr/local/share/dynamixel_sdk/control_table"
 )
+
+target_compile_options(${PROJECT_NAME} PRIVATE ${XENOMAI_CFLAGS_LIST}) 
 # ─── 링크 ────────────────────────────────────────────
 target_link_libraries(${PROJECT_NAME}
     rtde
+    ${XENOMAI_LDFLAGS_LIST}
+    pthread
     rt
 )
