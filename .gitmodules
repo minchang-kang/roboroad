@@ -4,3 +4,6 @@
 [submodule "3rdparty/ur_rtde"]
 	path = 3rdparty/ur_rtde
 	url = https://gitlab.com/sdurobotics/ur_rtde.git
+[submodule "3rdparty/rl"]
+	path = 3rdparty/rl
+	url = https://github.com/roboticslibrary/rl.git
