@@ -19,8 +19,6 @@ PREEMPT_RT thread (SCHED_FIFO)
   ├── Dynamixel 읽기
   ├── RTDE 읽기
   └── 데이터 저장
-
-Xenomai Hard RT task
   └── 중력보상 계산    (pure computation, 타이밍 critical)
 ```
 

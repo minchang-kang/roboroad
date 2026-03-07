@@ -18,6 +18,7 @@ separate_arguments(XENOMAI_CFLAGS_LIST UNIX_COMMAND "${XENOMAI_CFLAGS}")
 separate_arguments(XENOMAI_LDFLAGS_LIST UNIX_COMMAND "${XENOMAI_LDFLAGS}")
 
 # ─── ur_rtde ─────────────────────────────────────────
+set(PYTHON_BINDINGS OFF CACHE BOOL "" FORCE)
 add_subdirectory(3rdparty/ur_rtde)
 
 # ─── DynamixelSDK ────────────────────────────────────
