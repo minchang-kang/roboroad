@@ -100,8 +100,30 @@ void recorder_thread_func(SharedContext& ctx) {
 
 void input_thread_func(SharedContext& ctx) {
     while (running) {
-        // 1. 키보드 입력 감지
-        // 2. ctx.system_flag 업데이트 (mutex)
+        char key = getchar();
+
+        std::lock_guard<std::mutex> lock(ctx.flag_mutex);
+
+        switch (key) {
+            case 'T':
+            case 't':
+                if (hasFlag(ctx.system_flag, SystemFlag::TELEOP))
+                    ctx.system_flag = clearFlag(ctx.system_flag, SystemFlag::TELEOP);
+                else
+                    ctx.system_flag = setFlag(ctx.system_flag, SystemFlag::TELEOP);
+                break;
+
+            case 'S':
+            case 's':
+                if (hasFlag(ctx.system_flag, SystemFlag::SAVING))
+                    ctx.system_flag = clearFlag(ctx.system_flag, SystemFlag::SAVING);
+                else
+                    ctx.system_flag = setFlag(ctx.system_flag, SystemFlag::SAVING);
+                break;
+
+            default:
+                break;
+        }
     }
 }
 
