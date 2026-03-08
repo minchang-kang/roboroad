@@ -8,7 +8,7 @@ public:
     ~Teleop();
 
     void update(const MasterState& master, const SystemFlag& flag);
-    bool moveToHome();
+    void reset();
 
 private:
     URHal& ur_;

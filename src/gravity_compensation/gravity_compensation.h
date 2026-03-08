@@ -9,6 +9,7 @@ public:
 
     bool init();
     void update(const MasterState& master);
+    // 토크 계산 함수, 
 
 private:
     std::string urdf_path_;

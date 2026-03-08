@@ -11,3 +11,5 @@ void URHal::close() {}
 bool URHal::readJointAngles(URState& state) { return true; }
 
 bool URHal::writeJointAngles(const URState& state) { return true; }
+
+bool URHal::moveToHome() { return true; }

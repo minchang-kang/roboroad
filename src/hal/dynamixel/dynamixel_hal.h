@@ -15,6 +15,8 @@ public:
     bool readAngles(MasterState& state);
     bool writeTorque(const MasterState& state);
     bool setTorqueEnable(bool enable);
+    bool setOperatingMode(int mode);
+    // 토크 off 함수, 포지션 제어 변경 함수, 토크 제어 변경 함수,
 
 private:
     std::string port_;

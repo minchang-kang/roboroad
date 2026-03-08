@@ -6,4 +6,6 @@ Teleop::~Teleop() {}
 
 void Teleop::update(const MasterState& master, const SystemFlag& flag) {}
 
-bool Teleop::moveToHome() { return true; }
+void Teleop::reset() {
+    ur_.moveToHome();
+}

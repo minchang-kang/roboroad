@@ -13,3 +13,5 @@ bool DynamixelHAL::readAngles(MasterState& state) { return true; }
 bool DynamixelHAL::writeTorque(const MasterState& state) { return true; }
 
 bool DynamixelHAL::setTorqueEnable(bool enable) { return true; }
+
+bool DynamixelHAL::setOperatingMode(int mode) { return true; }

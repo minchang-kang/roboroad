@@ -12,6 +12,8 @@ public:
 
     bool readJointAngles(URState& state);
     bool writeJointAngles(const URState& state);
+    bool moveToHome();
+    // 그리퍼 제어 io 명령 함수(?),
 
 private:
     std::string ip_;
