@@ -1,6 +1,8 @@
 #include <thread>
 #include <atomic>
 #include <csignal>
+#include <sys/select.h>
+#include <unistd.h>
 
 #include "common/common.h"
 #include "hal/dynamixel/dynamixel_hal.h"
@@ -124,6 +126,13 @@ void recorder_thread_func(SharedContext& ctx) {
 
 void input_thread_func(SharedContext& ctx) {
     while (running) {
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(STDIN_FILENO, &fds);
+        struct timeval tv = {0, 100000}; // 100ms 타임아웃
+        if (select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &tv) <= 0)
+            continue;
+
         char key = getchar();
 
         std::lock_guard<std::mutex> lock(ctx.flag_mutex);
