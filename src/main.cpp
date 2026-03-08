@@ -1,7 +1,6 @@
 #include <thread>
 #include <atomic>
 #include <csignal>
-#include <yaml-cpp/yaml.h>
 
 #include "common/common.h"
 #include "hal/dynamixel/dynamixel_hal.h"
@@ -154,8 +153,6 @@ void input_thread_func(SharedContext& ctx) {
 
 void fsr_thread_func(SharedContext& ctx) {
     while (running) {
-        // 1. 라즈베리파이에서 FSR 데이터 수신 (TCP/UDP)
-        // 2. 임계값 비교 후 triggered 판단
-        // 3. ctx.fsr_state 업데이트 (mutex)
+
     }
 }

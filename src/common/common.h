@@ -70,6 +70,5 @@ struct SharedContext {
 
     std::mutex master_mutex;
     std::mutex ur_mutex;
-    std::mutex fsr_mutex;
     std::mutex flag_mutex;
 };
