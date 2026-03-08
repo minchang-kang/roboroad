@@ -1,0 +1,15 @@
+# ─── RT / 타이밍 ──────────────────────────────────────
+gc_loop_hz: 1000
+teleop_loop_hz: 500
+recorder_loop_hz: 50
+
+# ─── Dynamixel ───────────────────────────────────────
+dynamixel_port: "/dev/ttyUSB0"
+dynamixel_baudrate: 1000000
+
+# ─── FSR ─────────────────────────────────────────────
+fsr_pressure_threshold: 0.5
+fsr_recv_port: 9090
+
+# ─── UR ──────────────────────────────────────────────
+ur_ip: "192.168.1.100"

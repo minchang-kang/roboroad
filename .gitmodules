@@ -7,3 +7,6 @@
 [submodule "3rdparty/rl"]
 	path = 3rdparty/rl
 	url = https://github.com/roboticslibrary/rl.git
+[submodule "3rdparty/yaml-cpp"]
+	path = 3rdparty/yaml-cpp
+	url = https://github.com/jbeder/yaml-cpp.git
