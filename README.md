@@ -1,6 +1,6 @@
 1. 의존성
 ``` bash
-sudo apt-get install libboost-all-dev
+sudo apt-get install libboost-all-dev libeigen3-dev libxml2-dev libxslt1-dev
 ```
 
 2.
@@ -43,6 +43,6 @@ src/
 
 | 항목 | 출처 | 용도 |
 |------|------|------|
-| `master_q[N]` | Dynamixel | Action (사람의 행동) |
+| `master_q[6]` | Dynamixel | Action (사람의 행동) |
 | `robot_q[6]` | UR RTDE `actual_q` | State (로봇 관절 각도) |
 | `timestamp_ns` | `CLOCK_MONOTONIC` | Canonical timestamp |
