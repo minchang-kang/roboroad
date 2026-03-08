@@ -1,7 +1,6 @@
 #include "hal/dynamixel/dynamixel_hal.h"
 
-DynamixelHAL::DynamixelHAL(const std::string& port, int baudrate)
-    : port_(port), baudrate_(baudrate) {}
+DynamixelHAL::DynamixelHAL(const YAML::Node& config) {}
 
 DynamixelHAL::~DynamixelHAL() {}
 

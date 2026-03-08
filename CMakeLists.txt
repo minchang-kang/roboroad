@@ -49,6 +49,7 @@ add_executable(${PROJECT_NAME}
     src/hal/ur/ur_hal.cpp
     src/gravity_compensation/gravity_compensation.cpp
     src/teleop/teleop.cpp
+    src/recorder/recorder.cpp
     ${DYNAMIXEL_SRC}
 )
 

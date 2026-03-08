@@ -4,11 +4,11 @@
 
 class GravityCompensation {
 public:
-    GravityCompensation(const std::string& urdf_path);
+    GravityCompensation(const YAML::Node& config);
     ~GravityCompensation();
 
     bool init();
-    void update(const MasterState& master, const FSRState& fsr);
+    void update(const MasterState& master);
 
 private:
     std::string urdf_path_;

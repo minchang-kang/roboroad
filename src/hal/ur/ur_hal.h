@@ -4,7 +4,7 @@
 
 class URHal {
 public:
-    URHal(const std::string& ip);
+    URHal(const YAML::Node& config);
     ~URHal();
 
     bool init();

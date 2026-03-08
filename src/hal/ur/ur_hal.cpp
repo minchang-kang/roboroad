@@ -1,6 +1,6 @@
 #include "hal/ur/ur_hal.h"
 
-URHal::URHal(const std::string& ip) : ip_(ip) {}
+URHal::URHal(const YAML::Node& config) {}
 
 URHal::~URHal() {}
 

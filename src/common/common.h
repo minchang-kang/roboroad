@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <mutex>
+#include <yaml-cpp/yaml.h>
 
 // ─── 데이터 구조 ─────────────────────────────────────
 
@@ -14,11 +15,6 @@ struct MasterState {
 struct URState {
     double joint_angle[6];      // 조인트 각도 (rad)
     uint64_t timestamp_us;
-};
-
-struct FSRState {
-    double pressure;            // 압력값
-    bool triggered;             // 임계값 초과 여부
 };
 
 
@@ -70,7 +66,6 @@ inline SystemFlag clearFlag(SystemFlag state, SystemFlag flag) {
 struct SharedContext {
     MasterState master_state;
     URState ur_state;
-    FSRState fsr_state;
     SystemFlag system_flag = SystemFlag::IDLE;
 
     std::mutex master_mutex;

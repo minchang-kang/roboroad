@@ -8,6 +8,7 @@
 #include "hal/ur/ur_hal.h"
 #include "gravity_compensation/gravity_compensation.h"
 #include "teleop/teleop.h"
+#include "recorder/recorder.h"
 
 // ─── 종료 플래그 ─────────────────────────────────────
 std::atomic<bool> running(true);
@@ -18,7 +19,7 @@ void signal_handler(int sig) {
 
 // ─── 스레드 함수 선언 ────────────────────────────────
 void gc_thread_func(SharedContext& ctx, DynamixelHAL& dynamixel, GravityCompensation& gc);
-void teleop_thread_func(SharedContext& ctx, Teleop& teleop);
+void teleop_thread_func(SharedContext& ctx, URHal& ur);
 void recorder_thread_func(SharedContext& ctx);
 void input_thread_func(SharedContext& ctx);
 void fsr_thread_func(SharedContext& ctx);
@@ -30,27 +31,20 @@ int main() {
     // ─── config 로드 ─────────────────────────────────
     YAML::Node config = YAML::LoadFile("config/config.yaml");
 
-    std::string ur_ip          = config["ur_ip"].as<std::string>();
-    std::string dynamixel_port = config["dynamixel_port"].as<std::string>();
-    int dynamixel_baudrate     = config["dynamixel_baudrate"].as<int>();
-    std::string urdf_path      = config["urdf_path"].as<std::string>();
-
     // ─── 객체 생성 ───────────────────────────────────
     SharedContext ctx;
-    DynamixelHAL dynamixel(dynamixel_port, dynamixel_baudrate);
-    URHal ur(ur_ip);
-    GravityCompensation gc(urdf_path);
-    Teleop teleop(ur);
+    DynamixelHAL dynamixel(config);
+    URHal ur(config);
+    GravityCompensation gc(config);
 
     // ─── 초기화 ──────────────────────────────────────
     if (!dynamixel.init()) return -1;
     if (!ur.init())        return -1;
     if (!gc.init())        return -1;
-    if (!teleop.init())    return -1;
 
     // ─── 스레드 생성 ─────────────────────────────────
     std::thread gc_thread(gc_thread_func, std::ref(ctx), std::ref(dynamixel), std::ref(gc));
-    std::thread teleop_thread(teleop_thread_func, std::ref(ctx), std::ref(teleop));
+    std::thread teleop_thread(teleop_thread_func, std::ref(ctx), std::ref(ur));
     std::thread recorder_thread(recorder_thread_func, std::ref(ctx));
     std::thread input_thread(input_thread_func, std::ref(ctx));
     std::thread fsr_thread(fsr_thread_func, std::ref(ctx));
@@ -80,7 +74,8 @@ void gc_thread_func(SharedContext& ctx, DynamixelHAL& dynamixel, GravityCompensa
     }
 }
 
-void teleop_thread_func(SharedContext& ctx, Teleop& teleop) {
+void teleop_thread_func(SharedContext& ctx, URHal& ur) {
+    Teleop teleop(ur);
     while (running) {
         // 1. TELEOP 플래그 확인
         // 2. ctx.master_state 읽기 (mutex)
@@ -90,12 +85,42 @@ void teleop_thread_func(SharedContext& ctx, Teleop& teleop) {
 }
 
 void recorder_thread_func(SharedContext& ctx) {
+    Recorder recorder;
     while (running) {
-        // 1. SAVING 플래그 확인
-        // 2. ctx.master_state, ctx.ur_state 읽기 (mutex)
-        // 3. 파일에 저장
-        // 4. 50Hz 주기 대기
+        {
+            std::lock_guard<std::mutex> lock(ctx.flag_mutex);
+            if (!hasFlag(ctx.system_flag, SystemFlag::SAVING)) {
+                recorder.stop();
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                continue;
+            }
+        }
+
+        // 처음 SAVING 켜질 때 파일 생성
+        if (!recorder.isRecording()) {
+            recorder.start();
+        }
+
+        // 데이터 읽기
+        MasterState master;
+        URState ur;
+        {
+            std::lock_guard<std::mutex> lock(ctx.master_mutex);
+            master = ctx.master_state;
+        }
+        {
+            std::lock_guard<std::mutex> lock(ctx.ur_mutex);
+            ur = ctx.ur_state;
+        }
+
+        // 저장
+        recorder.save(master, ur);
+
+        // 50Hz 주기 대기
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
+
+    recorder.stop();
 }
 
 void input_thread_func(SharedContext& ctx) {

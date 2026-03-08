@@ -6,7 +6,7 @@ static constexpr int DOF = 6;
 
 class DynamixelHAL {
 public:
-    DynamixelHAL(const std::string& port, int baudrate);
+    DynamixelHAL(const YAML::Node& config);
     ~DynamixelHAL();
 
     bool init();
