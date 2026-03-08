@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <mutex>
 
 // ─── 데이터 구조 ─────────────────────────────────────
 
@@ -62,3 +63,18 @@ inline SystemFlag clearFlag(SystemFlag state, SystemFlag flag) {
     return static_cast<SystemFlag>(
         static_cast<uint8_t>(state) & ~static_cast<uint8_t>(flag));
 }
+
+
+// ─── 공유 컨텍스트 ───────────────────────────────────
+
+struct SharedContext {
+    MasterState master_state;
+    URState ur_state;
+    FSRState fsr_state;
+    SystemFlag system_flag = SystemFlag::IDLE;
+
+    std::mutex master_mutex;
+    std::mutex ur_mutex;
+    std::mutex fsr_mutex;
+    std::mutex flag_mutex;
+};

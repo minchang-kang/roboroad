@@ -45,6 +45,10 @@ set(DYNAMIXEL_SRC
 # ─── 소스 파일 ──────────────────────────────────────
 add_executable(${PROJECT_NAME}
     src/main.cpp
+    src/hal/dynamixel/dynamixel_hal.cpp
+    src/hal/ur/ur_hal.cpp
+    src/gravity_compensation/gravity_compensation.cpp
+    src/teleop/teleop.cpp
     ${DYNAMIXEL_SRC}
 )
 
