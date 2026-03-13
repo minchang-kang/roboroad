@@ -15,13 +15,14 @@ sudo apt-get install libboost-all-dev libeigen3-dev libxml2-dev libxslt1-dev lib
 Non RT thread
   ├── Vision
   ├     ├── Front Cam
-  ├     ├── Handle Cam
+  ├     └── Handle Cam
   ├── Teleop
   ├── keyboard input
   ├── fsr 확인
   ├── RTDE 읽기
-  ├── Recorder
-  └── Save
+  └── 데이터 저장
+        ├── Recorder
+        └── Save
 
 PREEMPT_RT thread (SCHED_FIFO)
   ├── Dynamixel 읽기

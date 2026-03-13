@@ -86,6 +86,48 @@ void gc_thread_func(SharedContext& ctx, DynamixelHAL& dynamixel, GravityCompensa
     }
 }
 
+void input_thread_func(SharedContext& ctx) {
+    while (running) {
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(STDIN_FILENO, &fds);
+        struct timeval tv = {0, 100000}; // 100ms 타임아웃
+        if (select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &tv) <= 0)
+            continue;
+
+        char key = getchar();
+
+        std::lock_guard<std::mutex> lock(ctx.flag_mutex);
+
+        switch (key) {
+            case 'T':
+            case 't':
+                if (hasFlag(ctx.system_flag, SystemFlag::TELEOP)) {
+                    ctx.system_flag = clearFlag(ctx.system_flag, SystemFlag::TELEOP);
+                    std::cout << "[input] TELEOP OFF" << std::endl;
+                } else {
+                    ctx.system_flag = setFlag(ctx.system_flag, SystemFlag::TELEOP);
+                    std::cout << "[input] TELEOP ON" << std::endl;
+                }
+                break;
+
+            case 'S':
+            case 's':
+                if (hasFlag(ctx.system_flag, SystemFlag::SAVING)) {
+                    ctx.system_flag = clearFlag(ctx.system_flag, SystemFlag::SAVING);
+                    std::cout << "[input] SAVING OFF" << std::endl;
+                } else {
+                    ctx.system_flag = setFlag(ctx.system_flag, SystemFlag::SAVING);
+                    std::cout << "[input] SAVING ON" << std::endl;
+                }
+                break;
+
+            default:
+                break;
+        }
+    }
+}
+
 void teleop_thread_func(SharedContext& ctx, URHal& ur) {
     Teleop teleop(ur);
     while (running) {
@@ -94,6 +136,29 @@ void teleop_thread_func(SharedContext& ctx, URHal& ur) {
         // 3. teleop.update() 호출
         // 4. 500Hz 주기 대기
     }
+}
+
+void vision_thread_func(SharedContext& ctx, const YAML::Node& config) {
+    VisionManager vision_manager(config, ctx);
+    vision_manager.openAll();
+
+    std::vector<std::thread> cam_threads;
+    for (auto& [role, queue] : ctx.vision_queues) {
+        cam_threads.emplace_back([&ctx, &vision_manager, role = role]() {
+            Vision& cam = vision_manager.get(role);
+            while (running) {
+                FrameData fd;
+                if (cam.read(fd.frame)) {
+                    fd.timestamp_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                        std::chrono::steady_clock::now().time_since_epoch()).count();
+                    ctx.vision_queues[role]->push(std::move(fd));
+                }
+            }
+        });
+    }
+
+    for (auto& t : cam_threads) t.join();
+    vision_manager.releaseAll();
 }
 
 void recorder_thread_func(SharedContext& ctx) {
@@ -171,77 +236,12 @@ void save_thread_func(SharedContext& ctx, const YAML::Node& config) {
     save_manager.stop();
 }
 
-void input_thread_func(SharedContext& ctx) {
-    while (running) {
-        fd_set fds;
-        FD_ZERO(&fds);
-        FD_SET(STDIN_FILENO, &fds);
-        struct timeval tv = {0, 100000}; // 100ms 타임아웃
-        if (select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &tv) <= 0)
-            continue;
-
-        char key = getchar();
-
-        std::lock_guard<std::mutex> lock(ctx.flag_mutex);
-
-        switch (key) {
-            case 'T':
-            case 't':
-                if (hasFlag(ctx.system_flag, SystemFlag::TELEOP)) {
-                    ctx.system_flag = clearFlag(ctx.system_flag, SystemFlag::TELEOP);
-                    std::cout << "[input] TELEOP OFF" << std::endl;
-                } else {
-                    ctx.system_flag = setFlag(ctx.system_flag, SystemFlag::TELEOP);
-                    std::cout << "[input] TELEOP ON" << std::endl;
-                }
-                break;
-
-            case 'S':
-            case 's':
-                if (hasFlag(ctx.system_flag, SystemFlag::SAVING)) {
-                    ctx.system_flag = clearFlag(ctx.system_flag, SystemFlag::SAVING);
-                    std::cout << "[input] SAVING OFF" << std::endl;
-                } else {
-                    ctx.system_flag = setFlag(ctx.system_flag, SystemFlag::SAVING);
-                    std::cout << "[input] SAVING ON" << std::endl;
-                }
-                break;
-
-            default:
-                break;
-        }
-    }
-}
-
 void rtde_thread_func(SharedContext& ctx, URHal& ur) {
     while (running) {
         // 1. ur에서 joint angle 읽기
         // 2. ctx.ur_state 업데이트 (unique_lock)
         std::this_thread::sleep_for(std::chrono::milliseconds(2)); // 500Hz
     }
-}
-
-void vision_thread_func(SharedContext& ctx, const YAML::Node& config) {
-    VisionManager vision_manager(config, ctx);
-    vision_manager.openAll();
-
-    std::vector<std::thread> cam_threads;
-    for (auto& [role, queue] : ctx.vision_queues) {
-        cam_threads.emplace_back([&ctx, &vision_manager, role = role]() {
-            Vision& cam = vision_manager.get(role);
-            while (running) {
-                FrameData fd;
-                if (cam.read(fd.frame)) {
-                    fd.timestamp_us = std::chrono::duration_cast<std::chrono::microseconds>(
-                        std::chrono::steady_clock::now().time_since_epoch()).count();
-                    ctx.vision_queues[role]->push(std::move(fd));
-                }
-            }
-        });
-    }
-
-    for (auto& t : cam_threads) t.join();
-    vision_manager.releaseAll();
 }
 
 void fsr_thread_func(SharedContext& ctx) {
