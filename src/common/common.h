@@ -1,7 +1,64 @@
 #pragma once
 #include <cstdint>
 #include <mutex>
+#include <shared_mutex>
+#include <deque>
+#include <queue>
+#include <condition_variable>
+#include <map>
+#include <string>
+#include <memory>
 #include <yaml-cpp/yaml.h>
+#include <opencv2/opencv.hpp>
+
+// ─── 비전 프레임 큐 ──────────────────────────────────
+
+struct FrameData {
+    cv::Mat        frame;
+    uint64_t       timestamp_us;
+};
+
+struct VisionQueue {
+    std::deque<FrameData> data;
+    mutable std::mutex    mutex;
+    size_t                max_size;
+
+    explicit VisionQueue(size_t max_size_) : max_size(max_size_) {}
+
+    void push(FrameData frame) {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (data.size() >= max_size)
+            data.pop_front();
+        data.push_back(std::move(frame));
+    }
+
+    // ref_ts에 가장 가까운 프레임 반환, 그보다 오래된 프레임은 버림
+    bool pop_closest(uint64_t ref_ts, FrameData& out) {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (data.empty()) return false;
+
+        while (data.size() > 1) {
+            uint64_t d0 = data[0].timestamp_us > ref_ts ? data[0].timestamp_us - ref_ts
+                                                        : ref_ts - data[0].timestamp_us;
+            uint64_t d1 = data[1].timestamp_us > ref_ts ? data[1].timestamp_us - ref_ts
+                                                        : ref_ts - data[1].timestamp_us;
+            if (d1 <= d0)
+                data.pop_front();
+            else
+                break;
+        }
+
+        out = std::move(data.front());
+        data.pop_front();
+        return true;
+    }
+
+    bool empty() const {
+        std::lock_guard<std::mutex> lock(mutex);
+        return data.empty();
+    }
+};
+
 
 // ─── 데이터 구조 ─────────────────────────────────────
 
@@ -15,6 +72,16 @@ struct MasterState {
 struct URState {
     double joint_angle[6];      // 조인트 각도 (rad)
     uint64_t timestamp_us;
+};
+
+
+// ─── 저장 데이터 ──────────────────────────────────────
+
+struct SaveData {
+    MasterState                      master;
+    URState                          ur;
+    std::map<std::string, FrameData> frames;  // role → frame
+    uint64_t                         timestamp_us;
 };
 
 
@@ -65,10 +132,16 @@ inline SystemFlag clearFlag(SystemFlag state, SystemFlag flag) {
 
 struct SharedContext {
     MasterState master_state;
-    URState ur_state;
-    SystemFlag system_flag = SystemFlag::IDLE;
+    URState     ur_state;
+    SystemFlag  system_flag = SystemFlag::IDLE;
 
-    std::mutex master_mutex;
-    std::mutex ur_mutex;
-    std::mutex flag_mutex;
+    mutable std::shared_mutex master_mutex;
+    mutable std::shared_mutex ur_mutex;
+    std::mutex                flag_mutex;
+
+    std::map<std::string, std::unique_ptr<VisionQueue>> vision_queues;
+
+    std::queue<SaveData>            save_queue;
+    std::mutex                      save_mutex;
+    std::condition_variable         save_cv;
 };

@@ -15,4 +15,19 @@ fsr_recv_port: 9090
 ur_ip: "192.168.1.100"
 
 # ─── GC ──────────────────────────────────────────────
-urdf_path: "/home/min/"
+urdf_path: "../urdf/UR3e_Master_Device.urdf"
+
+# ─── Vision ──────────────────────────────────────────────
+vision:
+  width: 1280
+  height: 720
+  fps: 60
+  queue_size: 30
+  cameras:
+    - device: "/dev/camera_0"
+      role: "front"
+    # - device: "/dev/camera_1"
+    #   role: "hand"
+
+# ─── data ──────────────────────────────────────────────
+output_path: "output/"

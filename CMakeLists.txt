@@ -5,18 +5,18 @@ set(CMAKE_CXX_STANDARD 17)
 
 
 # ─── Xenomai (Alchemy API) ──────────────────────────
-execute_process(
-    COMMAND xeno-config --skin=alchemy --cflags
-    OUTPUT_VARIABLE XENOMAI_CFLAGS
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-execute_process(
-    COMMAND xeno-config --skin=alchemy --ldflags
-    OUTPUT_VARIABLE XENOMAI_LDFLAGS
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-separate_arguments(XENOMAI_CFLAGS_LIST UNIX_COMMAND "${XENOMAI_CFLAGS}")
-separate_arguments(XENOMAI_LDFLAGS_LIST UNIX_COMMAND "${XENOMAI_LDFLAGS}")
+# execute_process(
+#     COMMAND xeno-config --skin=alchemy --cflags
+#     OUTPUT_VARIABLE XENOMAI_CFLAGS
+#     OUTPUT_STRIP_TRAILING_WHITESPACE
+# )
+# execute_process(
+#     COMMAND xeno-config --skin=alchemy --ldflags
+#     OUTPUT_VARIABLE XENOMAI_LDFLAGS
+#     OUTPUT_STRIP_TRAILING_WHITESPACE
+# )
+# separate_arguments(XENOMAI_CFLAGS_LIST UNIX_COMMAND "${XENOMAI_CFLAGS}")
+# separate_arguments(XENOMAI_LDFLAGS_LIST UNIX_COMMAND "${XENOMAI_LDFLAGS}")
 
 
 # ─── 3rdparty ────────────────────────────────────────
@@ -24,6 +24,8 @@ set(PYTHON_BINDINGS OFF CACHE BOOL "" FORCE)
 add_subdirectory(3rdparty/ur_rtde)
 add_subdirectory(3rdparty/yaml-cpp)
 
+find_package(OpenCV REQUIRED)
+find_package(HDF5 REQUIRED COMPONENTS CXX)
 
 # ─── DynamixelSDK ────────────────────────────────────
 set(DYNAMIXEL_SRC
@@ -47,9 +49,11 @@ add_executable(${PROJECT_NAME}
     src/main.cpp
     src/hal/dynamixel/dynamixel_hal.cpp
     src/hal/ur/ur_hal.cpp
+    src/hal/vision/vision.cpp
+    src/hal/vision/vision_manager.cpp
     src/gravity_compensation/gravity_compensation.cpp
     src/teleop/teleop.cpp
-    src/recorder/recorder.cpp
+    src/save/save_manager.cpp
     ${DYNAMIXEL_SRC}
 )
 
@@ -59,6 +63,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     src/
     3rdparty/DynamixelSDK/c++/include
     3rdparty/DynamixelSDK/c++/include/dynamixel_sdk
+    ${OpenCV_INCLUDE_DIRS}
+    ${HDF5_INCLUDE_DIRS}
 )
 
 
@@ -78,6 +84,8 @@ target_link_libraries(${PROJECT_NAME}
     pthread
     rt
     yaml-cpp
+    ${OpenCV_LIBS}
+    ${HDF5_CXX_LIBRARIES}
     ${XENOMAI_LDFLAGS_LIST}
 )
 

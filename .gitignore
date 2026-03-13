@@ -4,3 +4,7 @@ build/
 *.so
 .env
 .vscode/
+*.hdf5
+pyproject.toml
+uv.lock
+.python-version
