@@ -5,24 +5,25 @@ set(CMAKE_CXX_STANDARD 17)
 
 
 # ─── Xenomai (Alchemy API) ──────────────────────────
-# execute_process(
-#     COMMAND xeno-config --skin=alchemy --cflags
-#     OUTPUT_VARIABLE XENOMAI_CFLAGS
-#     OUTPUT_STRIP_TRAILING_WHITESPACE
-# )
-# execute_process(
-#     COMMAND xeno-config --skin=alchemy --ldflags
-#     OUTPUT_VARIABLE XENOMAI_LDFLAGS
-#     OUTPUT_STRIP_TRAILING_WHITESPACE
-# )
-# separate_arguments(XENOMAI_CFLAGS_LIST UNIX_COMMAND "${XENOMAI_CFLAGS}")
-# separate_arguments(XENOMAI_LDFLAGS_LIST UNIX_COMMAND "${XENOMAI_LDFLAGS}")
+execute_process(
+    COMMAND xeno-config --skin=alchemy --cflags
+    OUTPUT_VARIABLE XENOMAI_CFLAGS
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+execute_process(
+    COMMAND xeno-config --skin=alchemy --ldflags
+    OUTPUT_VARIABLE XENOMAI_LDFLAGS
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+separate_arguments(XENOMAI_CFLAGS_LIST UNIX_COMMAND "${XENOMAI_CFLAGS}")
+separate_arguments(XENOMAI_LDFLAGS_LIST UNIX_COMMAND "${XENOMAI_LDFLAGS}")
 
 
 # ─── 3rdparty ────────────────────────────────────────
-set(PYTHON_BINDINGS OFF CACHE BOOL "" FORCE)
-add_subdirectory(3rdparty/ur_rtde)
-add_subdirectory(3rdparty/yaml-cpp)
+# ur_rtde, yaml-cpp 는 시스템 설치본 사용 (sudo make install 완료 상태)
+find_package(ur_rtde REQUIRED)
+find_package(yaml-cpp REQUIRED)
+find_package(RL 0.7.0 COMPONENTS MATH MDL XML REQUIRED)
 
 find_package(OpenCV REQUIRED)
 find_package(HDF5 REQUIRED COMPONENTS CXX)
@@ -54,6 +55,8 @@ add_executable(${PROJECT_NAME}
     src/gravity_compensation/gravity_compensation.cpp
     src/teleop/teleop.cpp
     src/save/save_manager.cpp
+    src/save/log_manager.cpp
+    src/rt/rt_task.cpp
     ${DYNAMIXEL_SRC}
 )
 
@@ -65,6 +68,11 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     3rdparty/DynamixelSDK/c++/include/dynamixel_sdk
     ${OpenCV_INCLUDE_DIRS}
     ${HDF5_INCLUDE_DIRS}
+    /usr/local/include/rl-0.7.0
+    /usr/include/eigen3
+    /usr/xenomai/include
+    /usr/xenomai/include/cobalt
+    /usr/xenomai/include/alchemy
 )
 
 
@@ -80,10 +88,13 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 
 # ─── 링크 ────────────────────────────────────────────
 target_link_libraries(${PROJECT_NAME}
-    rtde
+    ur_rtde::rtde
+    yaml-cpp
+    rl::mdl
+    rl::math
+    rl::xml
     pthread
     rt
-    yaml-cpp
     ${OpenCV_LIBS}
     ${HDF5_CXX_LIBRARIES}
     ${XENOMAI_LDFLAGS_LIST}

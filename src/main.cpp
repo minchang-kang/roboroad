@@ -12,6 +12,8 @@
 #include "gravity_compensation/gravity_compensation.h"
 #include "teleop/teleop.h"
 #include "save/save_manager.h"
+#include "save/log_manager.h"
+#include "rt/rt_task.h"
 
 // ─── 종료 플래그 ─────────────────────────────────────
 std::atomic<bool> running(true);
@@ -21,11 +23,10 @@ void signal_handler(int sig) {
 }
 
 // ─── 스레드 함수 선언 ────────────────────────────────
-void gc_thread_func(SharedContext& ctx, DynamixelHAL& dynamixel, GravityCompensation& gc);
-void teleop_thread_func(SharedContext& ctx, URHal& ur);
+void teleop_thread_func(SharedContext& ctx, URHal& ur, const YAML::Node& config);
 void rtde_thread_func(SharedContext& ctx, URHal& ur);
 void vision_thread_func(SharedContext& ctx, const YAML::Node& config);
-void recorder_thread_func(SharedContext& ctx);
+void recorder_thread_func(SharedContext& ctx, const YAML::Node& config);
 void save_thread_func(SharedContext& ctx, const YAML::Node& config);
 void input_thread_func(SharedContext& ctx);
 void fsr_thread_func(SharedContext& ctx);
@@ -48,18 +49,21 @@ int main() {
     if (!ur.init())        return -1;
     if (!gc.init())        return -1;
 
+    // ─── RT 태스크 시작 (Xenomai 1kHz GC) ───────────
+    RTTask rt_task(ctx, dynamixel, gc);
+    if (!rt_task.start()) return -1;
+
     // ─── 스레드 생성 ─────────────────────────────────
-    std::thread gc_thread(gc_thread_func, std::ref(ctx), std::ref(dynamixel), std::ref(gc));
-    std::thread teleop_thread(teleop_thread_func, std::ref(ctx), std::ref(ur));
+    std::thread teleop_thread(teleop_thread_func, std::ref(ctx), std::ref(ur), std::cref(config));
     std::thread rtde_thread(rtde_thread_func, std::ref(ctx), std::ref(ur));
     std::thread vision_thread(vision_thread_func, std::ref(ctx), std::cref(config));
-    std::thread recorder_thread(recorder_thread_func, std::ref(ctx));
+    std::thread recorder_thread(recorder_thread_func, std::ref(ctx), std::cref(config));
     std::thread save_thread(save_thread_func, std::ref(ctx), std::cref(config));
     std::thread input_thread(input_thread_func, std::ref(ctx));
     std::thread fsr_thread(fsr_thread_func, std::ref(ctx));
 
     // ─── 종료 대기 ───────────────────────────────────
-    gc_thread.join();
+    rt_task.stop();
     teleop_thread.join();
     rtde_thread.join();
     vision_thread.join();
@@ -77,13 +81,36 @@ int main() {
 
 
 void gc_thread_func(SharedContext& ctx, DynamixelHAL& dynamixel, GravityCompensation& gc) {
-    // Xenomai RT 태스크 설정
+    const auto interval = std::chrono::microseconds(1000); // 1kHz
+    auto next = std::chrono::steady_clock::now();
+
     while (running) {
-        // 1. dynamixel에서 master angle 읽기
-        // 2. GC 계산 및 토크 출력 (FSR triggered 확인)
-        // 3. ctx.master_state 업데이트 (mutex)
-        // 4. 1kHz 주기 대기
+        std::this_thread::sleep_until(next);
+        next += interval;
+
+        MasterState master{};
+
+        // 1. DXL에서 관절각 읽기
+        if (!dynamixel.readAngles(master))
+            continue;
+
+        // 2. GC 계산 — master.torque[6] (Nm) + 내부 goal_cur_[6] (raw LSB) 채움
+        gc.update(master);
+
+        // 3. DXL에 목표 전류 전송
+        dynamixel.writeCurrents(gc.getGoalCurrents());
+
+        // 4. ctx.master_state 업데이트
+        master.timestamp_us = static_cast<uint64_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now().time_since_epoch()).count());
+        {
+            std::unique_lock lock(ctx.master_mutex);
+            ctx.master_state = master;
+        }
     }
+
+    dynamixel.setTorqueEnable(false);
 }
 
 void input_thread_func(SharedContext& ctx) {
@@ -128,13 +155,31 @@ void input_thread_func(SharedContext& ctx) {
     }
 }
 
-void teleop_thread_func(SharedContext& ctx, URHal& ur) {
-    Teleop teleop(ur);
+void teleop_thread_func(SharedContext& ctx, URHal& ur, const YAML::Node& config) {
+    Teleop teleop(ur, config);
+    const auto interval = std::chrono::microseconds(2000); // 500Hz
+    auto next = std::chrono::steady_clock::now();
+
     while (running) {
-        // 1. TELEOP 플래그 확인
-        // 2. ctx.master_state 읽기 (mutex)
-        // 3. teleop.update() 호출
-        // 4. 500Hz 주기 대기
+        std::this_thread::sleep_until(next);
+        next += interval;
+
+        // 1. 플래그 스냅샷
+        SystemFlag flag;
+        {
+            std::lock_guard<std::mutex> lock(ctx.flag_mutex);
+            flag = ctx.system_flag;
+        }
+
+        // 2. master_state 스냅샷
+        MasterState master;
+        {
+            std::shared_lock lock(ctx.master_mutex);
+            master = ctx.master_state;
+        }
+
+        // 3. TELEOP ON이면 UR에 servoJ 명령 전송
+        teleop.update(master, flag);
     }
 }
 
@@ -161,7 +206,10 @@ void vision_thread_func(SharedContext& ctx, const YAML::Node& config) {
     vision_manager.releaseAll();
 }
 
-void recorder_thread_func(SharedContext& ctx) {
+void recorder_thread_func(SharedContext& ctx, const YAML::Node& config) {
+    LogManager log(config);
+    if (!log.open()) return;
+
     auto next = std::chrono::steady_clock::now();
     const auto interval = std::chrono::milliseconds(20); // 50Hz
 
@@ -169,25 +217,34 @@ void recorder_thread_func(SharedContext& ctx) {
         std::this_thread::sleep_until(next);
         next += interval;
 
+        uint64_t ref_ts = std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+
+        MasterState master;
+        URState     ur;
+        {
+            std::shared_lock lock(ctx.master_mutex);
+            master = ctx.master_state;
+        }
+        {
+            std::shared_lock lock(ctx.ur_mutex);
+            ur = ctx.ur_state;
+        }
+
+        // CSV 항상 기록
+        log.write(master, ur);
+
+        // SAVING ON일 때만 HDF5 큐에 추가
         {
             std::lock_guard<std::mutex> lock(ctx.flag_mutex);
             if (!hasFlag(ctx.system_flag, SystemFlag::SAVING))
                 continue;
         }
 
-        uint64_t ref_ts = std::chrono::duration_cast<std::chrono::microseconds>(
-            std::chrono::steady_clock::now().time_since_epoch()).count();
-
         SaveData sd;
         sd.timestamp_us = ref_ts;
-        {
-            std::shared_lock lock(ctx.master_mutex);
-            sd.master = ctx.master_state;
-        }
-        {
-            std::shared_lock lock(ctx.ur_mutex);
-            sd.ur = ctx.ur_state;
-        }
+        sd.master = master;
+        sd.ur     = ur;
         for (auto& [role, queue] : ctx.vision_queues)
             queue->pop_closest(ref_ts, sd.frames[role]);
 
@@ -198,6 +255,7 @@ void recorder_thread_func(SharedContext& ctx) {
         ctx.save_cv.notify_one();
     }
 
+    log.close();
     ctx.save_cv.notify_all(); // save_thread 종료 깨우기
 }
 
@@ -237,10 +295,23 @@ void save_thread_func(SharedContext& ctx, const YAML::Node& config) {
 }
 
 void rtde_thread_func(SharedContext& ctx, URHal& ur) {
+    const auto interval = std::chrono::microseconds(2000); // 500Hz
+    auto next = std::chrono::steady_clock::now();
+
     while (running) {
-        // 1. ur에서 joint angle 읽기
-        // 2. ctx.ur_state 업데이트 (unique_lock)
-        std::this_thread::sleep_for(std::chrono::milliseconds(2)); // 500Hz
+        std::this_thread::sleep_until(next);
+        next += interval;
+
+        // 1. UR에서 관절각 읽기
+        URState state{};
+        if (!ur.readJointAngles(state))
+            continue;
+
+        // 2. ctx.ur_state 업데이트
+        {
+            std::unique_lock lock(ctx.ur_mutex);
+            ctx.ur_state = state;
+        }
     }
 }
 
@@ -249,3 +320,4 @@ void fsr_thread_func(SharedContext& ctx) {
 
     }
 }
+

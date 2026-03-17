@@ -1,0 +1,395 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="UR3e_Master_Device">
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="0.0166253339882948 0.00449694012365636 -0.0600806123133589"
+        rpy="0 0 0" />
+      <mass
+        value="0.946938752885199" />
+      <inertia
+        ixx="0.00176329020490228"
+        ixy="0.000488969107861777"
+        ixz="6.92363021198855E-05"
+        iyy="0.00247416956927201"
+        iyz="2.51160805375851E-05"
+        izz="0.00401929869001172" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://UR3e_Master_Device/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://UR3e_Master_Device/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="L1">
+    <inertial>
+      <origin
+        xyz="-0.0288185707034421 -1.6817073356587E-06 0.00880864688358335"
+        rpy="0 0 0" />
+      <mass
+        value="0.248834423527377" />
+      <inertia
+        ixx="0.000254453408030834"
+        ixy="5.81577274943217E-08"
+        ixz="1.90204715476703E-05"
+        iyy="0.00029997249275234"
+        iyz="-1.97434976439709E-08"
+        izz="0.000309238110444472" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://UR3e_Master_Device/meshes/L1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://UR3e_Master_Device/meshes/L1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J1"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="L1" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.14"
+      upper="3.14"
+      effort="50"
+      velocity="10" />
+  </joint>
+  <link
+    name="L2">
+    <inertial>
+      <origin
+        xyz="-5.30567840631088E-06 -0.0668459118121905 0.0954764726937587"
+        rpy="0 0 0" />
+      <mass
+        value="0.332602563675347" />
+      <inertia
+        ixx="0.000284921644195344"
+        ixy="-9.27547858376867E-09"
+        ixz="-6.96965180708605E-08"
+        iyy="0.000143667835545385"
+        iyz="2.26210666025928E-05"
+        izz="0.000230200223059145" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://UR3e_Master_Device/meshes/L2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://UR3e_Master_Device/meshes/L2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J2"
+    type="revolute">
+    <origin
+      xyz="0.0189999999999999 0 0.05305"
+      rpy="-1.5707963267949 0 1.5707963267949" />
+    <parent
+      link="L1" />
+    <child
+      link="L2" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-3.14"
+      upper="3.14"
+      effort="50"
+      velocity="10" />
+  </joint>
+  <link
+    name="L3">
+    <inertial>
+      <origin
+        xyz="0.0738930088555916 -7.30306510614911E-05 0.0720704486633671"
+        rpy="0 0 0" />
+      <mass
+        value="0.252374468137062" />
+      <inertia
+        ixx="0.000122794178748546"
+        ixy="-1.09414914352256E-07"
+        ixz="-1.00667008975913E-05"
+        iyy="0.000246290490802377"
+        iyz="-7.37219411483898E-07"
+        izz="0.000189040237390023" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://UR3e_Master_Device/meshes/L3.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.435294117647059 0.717647058823529 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://UR3e_Master_Device/meshes/L3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J3"
+    type="revolute">
+    <origin
+      xyz="0 -0.184800000000004 0.0979"
+      rpy="3.14159265358979 0 -1.5707963267949" />
+    <parent
+      link="L2" />
+    <child
+      link="L3" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.14"
+      upper="3.14"
+      effort="50"
+      velocity="10" />
+  </joint>
+  <link
+    name="L4">
+    <inertial>
+      <origin
+        xyz="-0.000269195098212494 -7.00946503244537E-05 0.030790696992483"
+        rpy="0 0 0" />
+      <mass
+        value="0.0640272941092606" />
+      <inertia
+        ixx="1.77845103192271E-05"
+        ixy="2.13231974753562E-13"
+        ixz="-1.60165502134492E-09"
+        iyy="1.71957800606779E-05"
+        iyz="-5.24396592233277E-15"
+        izz="1.24379604108842E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://UR3e_Master_Device/meshes/L4.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://UR3e_Master_Device/meshes/L4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J4"
+    type="revolute">
+    <origin
+      xyz="0.164929999999995 0 0.0607500000000001"
+      rpy="-3.14159265358979 0 -3.14159265358979" />
+    <parent
+      link="L3" />
+    <child
+      link="L4" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.14"
+      upper="3.14"
+      effort="50"
+      velocity="10" />
+  </joint>
+  <link
+    name="L5">
+    <inertial>
+      <origin
+        xyz="-0.000275652809283627 -7.17761482512749E-05 0.0253853917519625"
+        rpy="0 0 0" />
+      <mass
+        value="0.0625273283844539" />
+      <inertia
+        ixx="1.75560392484464E-05"
+        ixy="1.69055779530118E-12"
+        ixz="-1.60165502137006E-09"
+        iyy="1.68668273907939E-05"
+        iyz="-5.2442251920535E-15"
+        izz="1.20267340837592E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://UR3e_Master_Device/meshes/L5.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://UR3e_Master_Device/meshes/L5.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J5"
+    type="revolute">
+    <origin
+      xyz="-0.019 -0.000100000000000024 0.048"
+      rpy="3.14159265358979 1.5707963267949 0" />
+    <parent
+      link="L4" />
+    <child
+      link="L5" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.14"
+      upper="3.14"
+      effort="50"
+      velocity="10" />
+  </joint>
+  <link
+    name="L6">
+    <inertial>
+      <origin
+        xyz="0.0178726339107397 1.10571523227396E-06 0.0381797988612935"
+        rpy="0 0 0" />
+      <mass
+        value="0.0102439007985795" />
+      <inertia
+        ixx="9.19802028619916E-06"
+        ixy="-1.0858314059843E-10"
+        ixz="-4.58086518567347E-06"
+        iyy="1.15658279502547E-05"
+        iyz="-1.07204104227685E-10"
+        izz="3.47966694616601E-06" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://UR3e_Master_Device/meshes/L6.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://UR3e_Master_Device/meshes/L6.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J6"
+    type="revolute">
+    <origin
+      xyz="-0.019 -0.0001 0.04145"
+      rpy="3.1416 1.5708 0" />
+    <parent
+      link="L5" />
+    <child
+      link="L6" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.14"
+      upper="3.14"
+      effort="50"
+      velocity="10" />
+  </joint>
+</robot>

@@ -5,17 +5,45 @@ recorder_loop_hz: 50
 
 # ─── Dynamixel ───────────────────────────────────────
 dynamixel_port: "/dev/ttyUSB0"
-dynamixel_baudrate: 1000000
+# 다이나믹셀 모터의 baudrate = 4Mbps
+dynamixel_baudrate: 4000000
 
 # ─── FSR ─────────────────────────────────────────────
 fsr_pressure_threshold: 0.5
 fsr_recv_port: 9090
 
 # ─── UR ──────────────────────────────────────────────
-ur_ip: "192.168.1.100"
+ur_ip: "192.168.84.100"
+
+ur:
+  # servoJ 파라미터 (레퍼런스: ur_servo_thread servoJ 호출 기준)
+  servoj_lookahead_time: 0.05   # [s]
+  servoj_gain: 700.0
+  # 홈 위치 [deg] — DXL 중립(2048) 에 대응하는 UR 표준 자세
+  home_deg: [0, -90, 0, -90, 0, 0]
+
+# ─── Teleop ───────────────────────────────────────────
+teleop:
+  # DXL CCW 방향 = URDF + 방향이면 1, 반대면 -1
+  joint_direction: [1, -1, -1, 1, 1, 1]
+  # DXL 중립(2048)이 대응하는 UR 관절각 [deg]
+  home_offset_deg: [0, -90, 0, -90, 0, 0]
+  # EMA 저역통과 필터 계수 (0~1, 클수록 응답 빠름 / 노이즈 많음)
+  ema_alpha: 0.4
 
 # ─── GC ──────────────────────────────────────────────
-urdf_path: "../urdf/UR3e_Master_Device.urdf"
+urdf_path: "./URDF/UR3e_Master_Device/urdf/UR3e_Master_Device.urdf"  # <-- 실제 폴더 구조에 맞게 수정
+
+gc:
+  gravity_gain: 1.0
+  # DXL CCW = URDF + 방향이면 1, 반대면 -1
+  joint_direction: [1, -1, -1, 1, 1, 1]
+  # 축별 안전 게인 (0~1)
+  current_gain: [0.8, 0.8, 0.8, 0.8, 0.8, 0.8]
+  # 모터 토크 상수 Kt [Nm/A] — J1,J2: XM430-W350 / J3~J6: XM430-W210
+  kt: [1.37, 1.37, 1.30, 1.30, 1.30, 1.30]
+  # 축별 전류 한계 [raw LSB]
+  cur_limit: [1000, 1000, 800, 800, 800, 800]
 
 # ─── Vision ──────────────────────────────────────────────
 vision:
@@ -24,10 +52,13 @@ vision:
   fps: 60
   queue_size: 30
   cameras:
-    - device: "/dev/camera_0"
+    - device: "/dev/video2"  # 실제 연결된 카메라 경로로 수정
       role: "front"
     # - device: "/dev/camera_1"
     #   role: "hand"
 
-# ─── data ──────────────────────────────────────────────
+# ─── log (CSV 연속 로그, 항상 기록) ─────────────────────
+log_dir: "log"
+
+# ─── data (HDF5 저장, SAVING 플래그 ON 시에만) ──────────
 output_path: "output/"
