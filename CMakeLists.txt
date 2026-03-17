@@ -20,10 +20,36 @@ separate_arguments(XENOMAI_LDFLAGS_LIST UNIX_COMMAND "${XENOMAI_LDFLAGS}")
 
 
 # ─── 3rdparty ────────────────────────────────────────
-# ur_rtde, yaml-cpp 는 시스템 설치본 사용 (sudo make install 완료 상태)
-find_package(ur_rtde REQUIRED)
-find_package(yaml-cpp REQUIRED)
-find_package(RL 0.7.0 COMPONENTS MATH MDL XML REQUIRED)
+find_package(ur_rtde QUIET)
+if(NOT ur_rtde_FOUND)
+    message(STATUS "ur_rtde not found in system, building from submodule")
+    set(EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(PYTHON_BINDINGS OFF CACHE BOOL "" FORCE)
+    add_subdirectory(3rdparty/ur_rtde)
+endif()
+find_package(yaml-cpp QUIET)
+if(NOT yaml-cpp_FOUND)
+    message(STATUS "yaml-cpp not found in system, building from submodule")
+    set(YAML_CPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(YAML_CPP_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+    add_subdirectory(3rdparty/yaml-cpp)
+endif()
+find_package(RL 0.7.0 COMPONENTS MATH MDL XML QUIET)
+if(NOT RL_FOUND)
+    message(STATUS "RL not found in system, building from submodule")
+    set(RL_BUILD_DEMOS OFF CACHE BOOL "" FORCE)
+    set(RL_BUILD_EXTRAS OFF CACHE BOOL "" FORCE)
+    set(RL_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(RL_BUILD_HAL OFF CACHE BOOL "" FORCE)
+    set(RL_BUILD_SG OFF CACHE BOOL "" FORCE)
+    set(RL_BUILD_PLAN OFF CACHE BOOL "" FORCE)
+    set(RL_BUILD_VIS OFF CACHE BOOL "" FORCE)
+    set(RL_BUILD_KIN OFF CACHE BOOL "" FORCE)
+    add_subdirectory(3rdparty/rl)
+    add_library(rl::math ALIAS math)
+    add_library(rl::mdl ALIAS mdl)
+    add_library(rl::xml ALIAS xml)
+endif()
 
 find_package(OpenCV REQUIRED)
 find_package(HDF5 REQUIRED COMPONENTS CXX)
@@ -66,13 +92,13 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     src/
     3rdparty/DynamixelSDK/c++/include
     3rdparty/DynamixelSDK/c++/include/dynamixel_sdk
-    ${OpenCV_INCLUDE_DIRS}
-    ${HDF5_INCLUDE_DIRS}
     /usr/local/include/rl-0.7.0
     /usr/include/eigen3
     /usr/xenomai/include
     /usr/xenomai/include/cobalt
     /usr/xenomai/include/alchemy
+    ${OpenCV_INCLUDE_DIRS}
+    ${HDF5_INCLUDE_DIRS}
 )
 
 
