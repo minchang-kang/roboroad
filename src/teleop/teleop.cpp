@@ -65,11 +65,11 @@ Teleop::~Teleop() = default;
 void Teleop::update(const MasterState& master, const SystemFlag& flag)
 {
     // [임시 수정] FSR 센서 없이 테스트하기 위해 항상 TELEOP 활성화
-    // if (!hasFlag(flag, SystemFlag::TELEOP))
-    //     return;
+    if (!hasFlag(flag, SystemFlag::TELEOP))
+        return;
 
     URState cmd{};
-    cmd.timestamp_us = master.timestamp_us;
+    // cmd.timestamp_us = master.timestamp_us;
 
     for (int i = 0; i < 6; i++) {
         // master.joint_angle[i] : DXL 엔코더 → rad (중립 = 0 기준)

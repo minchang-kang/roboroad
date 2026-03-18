@@ -24,10 +24,10 @@ extern std::atomic<bool> running;
 static RT_TASK g_rt_task;
 
 // RT 루프 주기: 1kHz = 1,000,000 ns
-static constexpr RTIME RT_PERIOD_NS = 1'000'000ULL;
+static constexpr RTIME RT_PERIOD_NS = 4'000'000ULL;
 
 // RT 태스크 우선순위 (1~99, 높을수록 우선)
-static constexpr int RT_PRIORITY = 50;
+static constexpr int RT_PRIORITY = 90;
 
 // ============================================================================
 // 생성자 / 소멸자
@@ -47,21 +47,38 @@ RTTask::~RTTask()
 // ============================================================================
 
 bool RTTask::start()
-{
-    // 메모리 페이지 잠금: RT 태스크에서 페이지 폴트 방지
-    if (mlockall(MCL_CURRENT | MCL_FUTURE) != 0) {
+{    // 메모리 페이지 잠금: RT 태스크에서 페이지 폴트 방지    
+    if (mlockall(MCL_CURRENT | MCL_FUTURE) != 0)
+    {
         perror("[RTTask] mlockall 실패");
         return false;
     }
 
-    int ret = rt_task_create(&g_rt_task, "gc_rt", 0, RT_PRIORITY, T_JOINABLE);
-    if (ret != 0) {
+    int ret = rt_task_create(&g_rt_task, "gc_rt", 0, RT_PRIORITY, T_JOINABLE);    
+    if (ret != 0) 
+    {        
         fprintf(stderr, "[RTTask] rt_task_create 실패: %d\n", ret);
         return false;
     }
 
+    // CPU 10번에 RT 태스크 고정 (isolcpus=10,11 에서 10번 사용)    
+    cpu_set_t cpus;
+    CPU_ZERO(&cpus);
+    CPU_SET(10, &cpus);
+
+    ret = rt_task_set_affinity(&g_rt_task, &cpus);    
+    if (ret != 0) 
+    {        
+        fprintf(stderr, "[RTTask] rt_task_set_affinity 실패: %d\n", ret);
+    } 
+    else 
+    {
+        printf("[RTTask] CPU affinity → CPU 10\n");
+    }
+
     ret = rt_task_start(&g_rt_task, &RTTask::taskEntry, this);
-    if (ret != 0) {
+    if (ret != 0)
+    {
         fprintf(stderr, "[RTTask] rt_task_start 실패: %d\n", ret);
         rt_task_delete(&g_rt_task);
         return false;

@@ -56,6 +56,9 @@ private:
     // 홈 위치 [rad]
     double home_q_[6];
 
+    // UR timestamp → 시스템 시간 변환 offset [us]
+    int64_t timestamp_offset_us_ = 0;
+
     // ur_rtde 인터페이스 (unique_ptr: forward declaration 가능 + RAII)
     std::unique_ptr<ur_rtde::RTDEReceiveInterface> rtde_receive_;
     std::unique_ptr<ur_rtde::RTDEControlInterface> rtde_control_;

@@ -27,7 +27,7 @@
 // ============================================================================
 
 GravityCompensation::GravityCompensation(const YAML::Node& config)
-    : urdf_path_(config["urdf_path"].as<std::string>("../urdf/UR3e_Master_Device.urdf"))
+    : urdf_path_(config["gc"]["urdf_path"].as<std::string>())
     , gravity_gain_(1.0)
 {
     // ── 기본값 (레퍼런스 config.h 기준) ────────────────────────────────────
@@ -45,9 +45,6 @@ GravityCompensation::GravityCompensation(const YAML::Node& config)
     }
 
     // ── config.yaml gc: 섹션으로 오버라이드 ─────────────────────────────
-    if (!config["gc"])
-        return;
-
     const auto& gc = config["gc"];
 
     if (gc["gravity_gain"])

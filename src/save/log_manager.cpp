@@ -21,7 +21,7 @@ namespace fs = std::filesystem;
 // ============================================================================
 
 LogManager::LogManager(const YAML::Node& config)
-    : log_dir_(config["log_dir"].as<std::string>("log"))
+    : log_dir_(config["log"]["dir"].as<std::string>())
 {}
 
 LogManager::~LogManager()

@@ -19,8 +19,8 @@ static constexpr double POSITION_TO_RAD = 2.0 * M_PI / 4096.0;
 // ============================================================================
 
 DynamixelHAL::DynamixelHAL(const YAML::Node& config)
-    : port_(config["dynamixel_port"].as<std::string>("/dev/ttyUSB0"))
-    , baudrate_(config["dynamixel_baudrate"].as<int>(1000000))
+    : port_(config["dynamixel"]["port"].as<std::string>())
+    , baudrate_(config["dynamixel"]["baudrate"].as<int>())
     , port_handler_(nullptr), packet_handler_(nullptr)
     , sync_read_(nullptr), sync_write_(nullptr)
 {}

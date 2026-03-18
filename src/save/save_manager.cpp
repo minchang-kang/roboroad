@@ -8,7 +8,7 @@
 namespace fs = std::filesystem;
 
 SaveManager::SaveManager(const YAML::Node& config)
-    : output_path_(config["output_path"].as<std::string>()) {}
+    : output_path_(config["output"]["path"].as<std::string>()) {}
 
 SaveManager::~SaveManager() {
     stop();

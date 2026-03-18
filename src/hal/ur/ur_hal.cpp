@@ -24,23 +24,18 @@
 // ============================================================================
 
 URHal::URHal(const YAML::Node& config)
-    : ip_(config["ur_ip"].as<std::string>("192.168.1.100"))
+    : ip_(config["ur"]["ip"].as<std::string>())
     , servoj_dt_(0.002)              // 500Hz 주기
-    , servoj_lookahead_time_(0.05)   // 레퍼런스 ur_servo_thread 값
-    , servoj_gain_(700.0)            // 레퍼런스 ur_servo_thread 값
+    , servoj_lookahead_time_(0.05)
+    , servoj_gain_(700.0)
 {
-    // 홈 위치 기본값: {0, -90, 0, -90, 0, 0} [deg] → rad
-    // (레퍼런스 UR_HOME_OFFSETS 기준, 표준 UR3e 업라이트 자세)
+    // 홈 위치 기본값
     home_q_[0] =  0.0;
     home_q_[1] = -M_PI / 2.0;
     home_q_[2] =  0.0;
     home_q_[3] = -M_PI / 2.0;
     home_q_[4] =  0.0;
     home_q_[5] =  0.0;
-
-    // config.yaml ur: 섹션으로 오버라이드
-    if (!config["ur"])
-        return;
 
     const auto& uc = config["ur"];
 
@@ -71,10 +66,18 @@ bool URHal::init()
     try {
         rtde_receive_ = std::make_unique<ur_rtde::RTDEReceiveInterface>(ip_);
         rtde_control_ = std::make_unique<ur_rtde::RTDEControlInterface>(ip_);
+
+        int64_t ur_us  = static_cast<int64_t>(rtde_receive_->getTimestamp() * 1e6);
+        int64_t sys_us = std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+        timestamp_offset_us_ = sys_us - ur_us;
+
         std::cout << "[URHal] Connected to UR at " << ip_ << std::endl;
         return true;
     } catch (const std::exception& e) {
         std::cerr << "[URHal] init failed: " << e.what() << std::endl;
+        rtde_control_.reset();
+        rtde_receive_.reset();
         return false;
     }
 }
@@ -116,8 +119,8 @@ bool URHal::readJointAngles(URState& state)
         for (int i = 0; i < 6; i++)
             state.joint_angle[i] = q[i];
 
-        state.timestamp_us = std::chrono::duration_cast<std::chrono::microseconds>(
-            std::chrono::steady_clock::now().time_since_epoch()).count();
+        state.timestamp_us = static_cast<int64_t>(
+            rtde_receive_->getTimestamp() * 1e6) + timestamp_offset_us_;
 
         return true;
     } catch (const std::exception& e) {

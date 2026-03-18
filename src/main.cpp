@@ -49,6 +49,10 @@ int main() {
     if (!ur.init())        return -1;
     if (!gc.init())        return -1;
 
+    // ─── UR 초기화 ──────────────────────────────────────
+    if (config["ur"]["auto_home"].as<bool>(false))
+        ur.moveToHome();
+
     // ─── RT 태스크 시작 (Xenomai 1kHz GC) ───────────
     RTTask rt_task(ctx, dynamixel, gc);
     if (!rt_task.start()) return -1;
@@ -80,38 +84,38 @@ int main() {
 }
 
 
-void gc_thread_func(SharedContext& ctx, DynamixelHAL& dynamixel, GravityCompensation& gc) {
-    const auto interval = std::chrono::microseconds(1000); // 1kHz
-    auto next = std::chrono::steady_clock::now();
+// void gc_thread_func(SharedContext& ctx, DynamixelHAL& dynamixel, GravityCompensation& gc) {
+//     const auto interval = std::chrono::microseconds(1000); // 1kHz
+//     auto next = std::chrono::steady_clock::now();
 
-    while (running) {
-        std::this_thread::sleep_until(next);
-        next += interval;
+//     while (running) {
+//         std::this_thread::sleep_until(next);
+//         next += interval;
 
-        MasterState master{};
+//         MasterState master{};
 
-        // 1. DXL에서 관절각 읽기
-        if (!dynamixel.readAngles(master))
-            continue;
+//         // 1. DXL에서 관절각 읽기
+//         if (!dynamixel.readAngles(master))
+//             continue;
 
-        // 2. GC 계산 — master.torque[6] (Nm) + 내부 goal_cur_[6] (raw LSB) 채움
-        gc.update(master);
+//         // 2. GC 계산 — master.torque[6] (Nm) + 내부 goal_cur_[6] (raw LSB) 채움
+//         gc.update(master);
 
-        // 3. DXL에 목표 전류 전송
-        dynamixel.writeCurrents(gc.getGoalCurrents());
+//         // 3. DXL에 목표 전류 전송
+//         dynamixel.writeCurrents(gc.getGoalCurrents());
 
-        // 4. ctx.master_state 업데이트
-        master.timestamp_us = static_cast<uint64_t>(
-            std::chrono::duration_cast<std::chrono::microseconds>(
-                std::chrono::steady_clock::now().time_since_epoch()).count());
-        {
-            std::unique_lock lock(ctx.master_mutex);
-            ctx.master_state = master;
-        }
-    }
+//         // 4. ctx.master_state 업데이트
+//         master.timestamp_us = static_cast<uint64_t>(
+//             std::chrono::duration_cast<std::chrono::microseconds>(
+//                 std::chrono::steady_clock::now().time_since_epoch()).count());
+//         {
+//             std::unique_lock lock(ctx.master_mutex);
+//             ctx.master_state = master;
+//         }
+//     }
 
-    dynamixel.setTorqueEnable(false);
-}
+//     dynamixel.setTorqueEnable(false);
+// }
 
 void input_thread_func(SharedContext& ctx) {
     while (running) {
@@ -296,6 +300,7 @@ void save_thread_func(SharedContext& ctx, const YAML::Node& config) {
 
 void rtde_thread_func(SharedContext& ctx, URHal& ur) {
     const auto interval = std::chrono::microseconds(2000); // 500Hz
+    // const auto interval = std::chrono::milliseconds(10); // 50Hz
     auto next = std::chrono::steady_clock::now();
 
     while (running) {

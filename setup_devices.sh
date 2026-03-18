@@ -35,3 +35,16 @@ fi
 
 echo ""
 echo "세팅 완료."
+
+echo ""
+echo "[6/6] 카메라 설정 (/dev/camera_1)..."
+if [ ! -e /dev/camera_1 ]; then
+    echo "  경고: /dev/camera_1 없음, 건너뜀"
+else
+    v4l2-ctl -d /dev/camera_1 -l
+    v4l2-ctl -d /dev/camera_1 -c exposure_dynamic_framerate=0
+    echo "  exposure_dynamic_framerate=0 설정 완료"
+fi
+
+echo ""
+echo "세팅 완료."

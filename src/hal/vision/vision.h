@@ -25,4 +25,5 @@ private:
     int width_;
     int height_;
     int target_fps_;
+    int read_count_= 0;
 };

@@ -1,25 +1,27 @@
 # ─── RT / 타이밍 ──────────────────────────────────────
-gc_loop_hz: 1000
-teleop_loop_hz: 500
-recorder_loop_hz: 50
+timing:
+  gc_loop_hz: 1000
+  teleop_loop_hz: 500
+  recorder_loop_hz: 50
 
 # ─── Dynamixel ───────────────────────────────────────
-dynamixel_port: "/dev/ttyUSB0"
-# 다이나믹셀 모터의 baudrate = 4Mbps
-dynamixel_baudrate: 4000000
+dynamixel:
+  port: "/dev/ttyUSB0"
+  baudrate: 4000000
 
 # ─── FSR ─────────────────────────────────────────────
-fsr_pressure_threshold: 0.5
-fsr_recv_port: 9090
+fsr:
+  pressure_threshold: 0.5
+  recv_port: 9090
 
 # ─── UR ──────────────────────────────────────────────
-ur_ip: "192.168.84.100"
-
 ur:
-  # servoJ 파라미터 (레퍼런스: ur_servo_thread servoJ 호출 기준)
+  ip: "192.168.84.100"
+  auto_home: true
+  # servoJ 파라미터
   servoj_lookahead_time: 0.05   # [s]
-  servoj_gain: 700.0
-  # 홈 위치 [deg] — DXL 중립(2048) 에 대응하는 UR 표준 자세
+  servoj_gain: 300.0
+  # 홈 위치 [deg]
   home_deg: [0, -90, 0, -90, 0, 0]
 
 # ─── Teleop ───────────────────────────────────────────
@@ -32,33 +34,34 @@ teleop:
   ema_alpha: 0.4
 
 # ─── GC ──────────────────────────────────────────────
-urdf_path: "./URDF/UR3e_Master_Device/urdf/UR3e_Master_Device.urdf"  # <-- 실제 폴더 구조에 맞게 수정
-
 gc:
+  urdf_path: "./URDF/UR3e_Master_Device/urdf/UR3e_Master_Device.urdf"
   gravity_gain: 1.0
   # DXL CCW = URDF + 방향이면 1, 반대면 -1
   joint_direction: [1, -1, -1, 1, 1, 1]
   # 축별 안전 게인 (0~1)
   current_gain: [0.8, 0.8, 0.8, 0.8, 0.8, 0.8]
-  # 모터 토크 상수 Kt [Nm/A] — J1,J2: XM430-W350 / J3~J6: XM430-W210
+  # 모터 토크 상수 Kt [Nm/A]
   kt: [1.37, 1.37, 1.30, 1.30, 1.30, 1.30]
   # 축별 전류 한계 [raw LSB]
   cur_limit: [1000, 1000, 800, 800, 800, 800]
 
-# ─── Vision ──────────────────────────────────────────────
+# ─── Vision ──────────────────────────────────────────
 vision:
-  width: 1280
-  height: 720
-  fps: 60
+  width: 640
+  height: 480
+  fps: 30
   queue_size: 30
   cameras:
-    - device: "/dev/video2"  # 실제 연결된 카메라 경로로 수정
+    - device: "/dev/camera_0"
       role: "front"
-    # - device: "/dev/camera_1"
-    #   role: "hand"
+    - device: "/dev/camera_1"
+      role: "hand"
 
 # ─── log (CSV 연속 로그, 항상 기록) ─────────────────────
-log_dir: "log"
+log:
+  dir: "log"
 
-# ─── data (HDF5 저장, SAVING 플래그 ON 시에만) ──────────
-output_path: "output/"
+# ─── output (HDF5 저장, SAVING 플래그 ON 시에만) ─────────
+output:
+  path: "output/"
