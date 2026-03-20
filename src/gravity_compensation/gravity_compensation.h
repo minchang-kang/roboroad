@@ -50,7 +50,7 @@ private:
     double  current_gain_[6];      // 안전 게인 (0~1)
     double  kt_[6];                // 토크 상수 Kt [Nm/A]
     int16_t cur_limit_[6];         // 전류 한계 [raw LSB]
-    double  gravity_gain_;         // 전체 게인 (기본 1.0)
+    double  gravity_gain_[6];         // 전체 게인 (기본 1.0)
 
     // RL 동역학 모델 (factory.create() 가 shared_ptr 반환)
     std::shared_ptr<rl::mdl::Dynamic> model_;

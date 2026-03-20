@@ -160,6 +160,7 @@ void RTTask::run()
             std::unique_lock lock(ctx_.master_mutex);
             ctx_.master_state = master;
         }
+        ctx_.master_queue.push(master);
 
         // 5. 1초마다 RT-safe 콘솔 출력 (1kHz 기준 1000 사이클)
         if (cycle % 1000 == 0) {

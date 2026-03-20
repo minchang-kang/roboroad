@@ -18,22 +18,23 @@ struct FrameData {
     uint64_t       timestamp_us;
 };
 
-struct VisionQueue {
-    std::deque<FrameData> data;
+template <typename T>
+struct DataQueue {
+    std::deque<T> data;
     mutable std::mutex    mutex;
     size_t                max_size;
 
-    explicit VisionQueue(size_t max_size_) : max_size(max_size_) {}
+    explicit DataQueue(size_t max_size_) : max_size(max_size_) {}
 
-    void push(FrameData frame) {
+    void push(T item) {
         std::lock_guard<std::mutex> lock(mutex);
         if (data.size() >= max_size)
             data.pop_front();
-        data.push_back(std::move(frame));
+        data.push_back(std::move(item));
     }
 
-    // ref_ts에 가장 가까운 프레임 반환, 그보다 오래된 프레임은 버림
-    bool pop_closest(uint64_t ref_ts, FrameData& out) {
+    // ref_ts에 가장 가까운 데이터 반환, 그보다 오래된 데이터는 버림
+    bool pop_closest(uint64_t ref_ts, T& out) {
         std::lock_guard<std::mutex> lock(mutex);
         if (data.empty()) return false;
 
@@ -58,6 +59,9 @@ struct VisionQueue {
         return data.empty();
     }
 };
+
+// 기존 코드 호환성을 위한 Alias
+using VisionQueue = DataQueue<FrameData>;
 
 
 // ─── 데이터 구조 ─────────────────────────────────────
@@ -140,6 +144,8 @@ struct SharedContext {
     std::mutex                flag_mutex;
 
     std::map<std::string, std::unique_ptr<VisionQueue>> vision_queues;
+    DataQueue<MasterState> master_queue{1000}; // 1초 분량 (1kHz 버퍼)
+    DataQueue<URState>     ur_queue{500};      // 1초 분량 (500Hz 버퍼)
 
     std::queue<SaveData>            save_queue;
     std::mutex                      save_mutex;

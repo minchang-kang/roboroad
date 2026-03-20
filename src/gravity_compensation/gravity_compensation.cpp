@@ -28,7 +28,7 @@
 
 GravityCompensation::GravityCompensation(const YAML::Node& config)
     : urdf_path_(config["gc"]["urdf_path"].as<std::string>())
-    , gravity_gain_(1.0)
+    //, gravity_gain_(1.0)
 {
     // ── 기본값 (레퍼런스 config.h 기준) ────────────────────────────────────
     const double  default_dir[6]  = { 1.0,   -1.0,  -1.0,   1.0,   1.0,   1.0  };
@@ -42,13 +42,12 @@ GravityCompensation::GravityCompensation(const YAML::Node& config)
         kt_[i]              = default_kt[i];
         cur_limit_[i]       = default_lim[i];
         goal_cur_[i]        = 0;
+        gravity_gain_[i]    = 1.0;
     }
 
     // ── config.yaml gc: 섹션으로 오버라이드 ─────────────────────────────
     const auto& gc = config["gc"];
 
-    if (gc["gravity_gain"])
-        gravity_gain_ = gc["gravity_gain"].as<double>();
 
     auto load_double6 = [&](const char* key, double out[6]) {
         if (gc[key] && gc[key].IsSequence()) {
@@ -69,6 +68,15 @@ GravityCompensation::GravityCompensation(const YAML::Node& config)
     load_double6("current_gain",    current_gain_);
     load_double6("kt",              kt_);
     load_int16_6("cur_limit",       cur_limit_);
+
+    if (gc["gravity_gain"]) {
+        if (gc["gravity_gain"].IsSequence()) {
+            load_double6("gravity_gain", gravity_gain_);
+        } else {
+            double val = gc["gravity_gain"].as<double>();
+            for (int i = 0; i < 6; i++) gravity_gain_[i] = val;
+        }
+    }
 }
 
 // destructor: unique_ptr<rl::mdl::Dynamic> 완전 타입 필요 → .cpp 에서 정의
@@ -135,7 +143,7 @@ void GravityCompensation::update(MasterState& master)
 
     for (int i = 0; i < 6; i++) {
         double tau_raw = tau[i];
-        double tau_cmd = tau_raw * gravity_gain_ * joint_direction_[i];
+        double tau_cmd = tau_raw * gravity_gain_[i] * joint_direction_[i];
 
         double raw_d = (tau_cmd / kt_[i]) * 1000.0 / DXL_CUR_UNIT_MA;
         raw_d *= current_gain_[i];

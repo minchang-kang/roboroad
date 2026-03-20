@@ -226,11 +226,17 @@ void recorder_thread_func(SharedContext& ctx, const YAML::Node& config) {
 
         MasterState master;
         URState     ur;
-        {
+
+        // 큐에서 현재 시간(ref_ts)에 가장 가까운 데이터를 팝업하여 동기화
+        bool has_master = ctx.master_queue.pop_closest(ref_ts, master);
+        bool has_ur = ctx.ur_queue.pop_closest(ref_ts, ur);
+
+        // 만약 큐가 비어 있다면 실시간 최신 상태값으로 Fallback 처리
+        if (!has_master) {
             std::shared_lock lock(ctx.master_mutex);
             master = ctx.master_state;
         }
-        {
+        if (!has_ur) {
             std::shared_lock lock(ctx.ur_mutex);
             ur = ctx.ur_state;
         }
@@ -317,6 +323,13 @@ void rtde_thread_func(SharedContext& ctx, URHal& ur) {
             std::unique_lock lock(ctx.ur_mutex);
             ctx.ur_state = state;
         }
+
+        if (state.timestamp_us == 0) {
+            state.timestamp_us = static_cast<uint64_t>(
+                std::chrono::duration_cast<std::chrono::microseconds>(
+                    std::chrono::steady_clock::now().time_since_epoch()).count());
+        }
+        ctx.ur_queue.push(state);
     }
 }
 
@@ -325,4 +338,3 @@ void fsr_thread_func(SharedContext& ctx) {
 
     }
 }
-
