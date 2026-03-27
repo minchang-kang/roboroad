@@ -24,7 +24,7 @@ void signal_handler(int sig) {
 
 // ─── 스레드 함수 선언 ────────────────────────────────
 void teleop_thread_func(SharedContext& ctx, URHal& ur, const YAML::Node& config);
-void rtde_thread_func(SharedContext& ctx, URHal& ur);
+void rtde_thread_func(SharedContext& ctx, URHal& ur, const YAML::Node& config);
 void vision_thread_func(SharedContext& ctx, const YAML::Node& config);
 void recorder_thread_func(SharedContext& ctx, const YAML::Node& config);
 void save_thread_func(SharedContext& ctx, const YAML::Node& config);
@@ -59,7 +59,7 @@ int main() {
 
     // ─── 스레드 생성 ─────────────────────────────────
     std::thread teleop_thread(teleop_thread_func, std::ref(ctx), std::ref(ur), std::cref(config));
-    std::thread rtde_thread(rtde_thread_func, std::ref(ctx), std::ref(ur));
+    std::thread rtde_thread(rtde_thread_func, std::ref(ctx), std::ref(ur), std::cref(config));
     std::thread vision_thread(vision_thread_func, std::ref(ctx), std::cref(config));
     std::thread recorder_thread(recorder_thread_func, std::ref(ctx), std::cref(config));
     std::thread save_thread(save_thread_func, std::ref(ctx), std::cref(config));
@@ -161,7 +161,8 @@ void input_thread_func(SharedContext& ctx) {
 
 void teleop_thread_func(SharedContext& ctx, URHal& ur, const YAML::Node& config) {
     Teleop teleop(ur, config);
-    const auto interval = std::chrono::microseconds(2000); // 500Hz
+    const int teleop_hz = config["timing"]["teleop_loop_hz"].as<int>();
+    const auto interval = std::chrono::microseconds(1'000'000 / teleop_hz);
     auto next = std::chrono::steady_clock::now();
 
     while (running) {
@@ -214,8 +215,9 @@ void recorder_thread_func(SharedContext& ctx, const YAML::Node& config) {
     LogManager log(config);
     if (!log.open()) return;
 
+    const int recorder_hz = config["timing"]["recorder_loop_hz"].as<int>();
     auto next = std::chrono::steady_clock::now();
-    const auto interval = std::chrono::milliseconds(20); // 50Hz
+    const auto interval = std::chrono::milliseconds(1'000 / recorder_hz); // 50Hz
 
     while (running) {
         std::this_thread::sleep_until(next);
@@ -304,9 +306,9 @@ void save_thread_func(SharedContext& ctx, const YAML::Node& config) {
     save_manager.stop();
 }
 
-void rtde_thread_func(SharedContext& ctx, URHal& ur) {
-    const auto interval = std::chrono::microseconds(2000); // 500Hz
-    // const auto interval = std::chrono::milliseconds(10); // 50Hz
+void rtde_thread_func(SharedContext& ctx, URHal& ur, const YAML::Node& config) {
+    const int rtde_hz = config["timing"]["rtde_loop_hz"].as<int>();
+    const auto interval = std::chrono::microseconds(1'000'000 / rtde_hz); // 500Hz
     auto next = std::chrono::steady_clock::now();
 
     while (running) {

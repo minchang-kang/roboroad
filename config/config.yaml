@@ -2,12 +2,14 @@
 timing:
   gc_loop_hz: 1000
   teleop_loop_hz: 500
+  rtde_loop_hz: 500
   recorder_loop_hz: 50
 
 # ─── Dynamixel ───────────────────────────────────────
 dynamixel:
   port: "/dev/ttyUSB0"
   baudrate: 4000000
+  queue_size: 30
 
 # ─── FSR ─────────────────────────────────────────────
 fsr:
@@ -18,6 +20,7 @@ fsr:
 ur:
   ip: "192.168.84.100"
   auto_home: true
+  queue_size: 30
   # servoJ 파라미터
   servoj_lookahead_time: 0.05   # [s]
   servoj_gain: 300.0
