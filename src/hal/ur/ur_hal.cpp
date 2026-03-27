@@ -64,8 +64,8 @@ URHal::~URHal()
 bool URHal::init()
 {
     try {
-        rtde_receive_ = std::make_unique<ur_rtde::RTDEReceiveInterface>(ip_);
         rtde_control_ = std::make_unique<ur_rtde::RTDEControlInterface>(ip_);
+        rtde_receive_ = std::make_unique<ur_rtde::RTDEReceiveInterface>(ip_);
 
         int64_t ur_us  = static_cast<int64_t>(rtde_receive_->getTimestamp() * 1e6);
         int64_t sys_us = std::chrono::duration_cast<std::chrono::microseconds>(
@@ -92,10 +92,12 @@ void URHal::close()
         try {
             rtde_control_->servoStop();
             rtde_control_->stopScript();
+            rtde_control_->disconnect();
         } catch (...) {}
         rtde_control_.reset();
     }
     if (rtde_receive_) {
+        rtde_receive_->disconnect();
         rtde_receive_.reset();
     }
     std::cout << "[URHal] Connection closed" << std::endl;

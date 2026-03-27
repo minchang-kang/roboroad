@@ -23,21 +23,45 @@ struct DataQueue {
     std::deque<T> data;
     mutable std::mutex    mutex;
     size_t                max_size;
-
+ 
     explicit DataQueue(size_t max_size_) : max_size(max_size_) {}
-
+ 
     void push(T item) {
         std::lock_guard<std::mutex> lock(mutex);
         if (data.size() >= max_size)
             data.pop_front();
         data.push_back(std::move(item));
     }
-
+ 
+    // ref_ts에 가장 가까운 데이터를 복사해서 반환 (큐에서 제거하지 않음)
+    bool peek_closest(uint64_t ref_ts, T& out) const {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (data.empty()) return false;
+ 
+        size_t best_idx = 0;
+        uint64_t best_diff = data[0].timestamp_us > ref_ts
+            ? data[0].timestamp_us - ref_ts
+            : ref_ts - data[0].timestamp_us;
+ 
+        for (size_t i = 1; i < data.size(); ++i) {
+            uint64_t diff = data[i].timestamp_us > ref_ts
+                ? data[i].timestamp_us - ref_ts
+                : ref_ts - data[i].timestamp_us;
+            if (diff < best_diff) {
+                best_diff = diff;
+                best_idx  = i;
+            }
+        }
+ 
+        out = data[best_idx];  // copy
+        return true;
+    }
+ 
     // ref_ts에 가장 가까운 데이터 반환, 그보다 오래된 데이터는 버림
     bool pop_closest(uint64_t ref_ts, T& out) {
         std::lock_guard<std::mutex> lock(mutex);
         if (data.empty()) return false;
-
+ 
         while (data.size() > 1) {
             uint64_t d0 = data[0].timestamp_us > ref_ts ? data[0].timestamp_us - ref_ts
                                                         : ref_ts - data[0].timestamp_us;
@@ -48,18 +72,23 @@ struct DataQueue {
             else
                 break;
         }
-
+ 
         out = std::move(data.front());
         data.pop_front();
         return true;
     }
-
+ 
     bool empty() const {
         std::lock_guard<std::mutex> lock(mutex);
         return data.empty();
     }
-};
 
+    size_t size() const {
+        std::lock_guard<std::mutex> lock(mutex);
+        return data.size();
+    }
+};
+ 
 // 기존 코드 호환성을 위한 Alias
 using VisionQueue = DataQueue<FrameData>;
 

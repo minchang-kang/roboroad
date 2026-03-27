@@ -3,7 +3,7 @@ timing:
   gc_loop_hz: 1000
   teleop_loop_hz: 500
   rtde_loop_hz: 500
-  recorder_loop_hz: 50
+  recorder_loop_hz: 30
 
 # ─── Dynamixel ───────────────────────────────────────
 dynamixel:

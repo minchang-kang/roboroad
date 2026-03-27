@@ -151,6 +151,7 @@ void input_thread_func(SharedContext& ctx) {
                     ctx.system_flag = setFlag(ctx.system_flag, SystemFlag::SAVING);
                     std::cout << "[input] SAVING ON" << std::endl;
                 }
+                ctx.save_cv.notify_one();
                 break;
 
             default:
@@ -196,12 +197,20 @@ void vision_thread_func(SharedContext& ctx, const YAML::Node& config) {
     for (auto& [role, queue] : ctx.vision_queues) {
         cam_threads.emplace_back([&ctx, &vision_manager, role = role]() {
             Vision& cam = vision_manager.get(role);
+            auto last_debug = std::chrono::steady_clock::now();
             while (running) {
                 FrameData fd;
                 if (cam.read(fd.frame)) {
                     fd.timestamp_us = std::chrono::duration_cast<std::chrono::microseconds>(
                         std::chrono::steady_clock::now().time_since_epoch()).count();
                     ctx.vision_queues[role]->push(std::move(fd));
+                }
+
+                auto now = std::chrono::steady_clock::now();
+                if (now - last_debug >= std::chrono::seconds(2)) {
+                    std::printf("[DEBUG] vision_queue[%s] size: %zu\n",
+                        role.c_str(), ctx.vision_queues[role]->size());
+                    last_debug = now;
                 }
             }
         });
@@ -212,27 +221,27 @@ void vision_thread_func(SharedContext& ctx, const YAML::Node& config) {
 }
 
 void recorder_thread_func(SharedContext& ctx, const YAML::Node& config) {
-    LogManager log(config);
-    if (!log.open()) return;
-
+    // LogManager log(config);
+    // if (!log.open()) return;
+ 
     const int recorder_hz = config["timing"]["recorder_loop_hz"].as<int>();
     auto next = std::chrono::steady_clock::now();
     const auto interval = std::chrono::milliseconds(1'000 / recorder_hz); // 50Hz
-
+ 
     while (running) {
         std::this_thread::sleep_until(next);
         next += interval;
-
+ 
         uint64_t ref_ts = std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now().time_since_epoch()).count();
-
+ 
         MasterState master;
         URState     ur;
-
-        // 큐에서 현재 시간(ref_ts)에 가장 가까운 데이터를 팝업하여 동기화
-        bool has_master = ctx.master_queue.pop_closest(ref_ts, master);
-        bool has_ur = ctx.ur_queue.pop_closest(ref_ts, ur);
-
+ 
+        // 큐에서 현재 시간(ref_ts)에 가장 가까운 데이터를 복사 (큐에서 제거하지 않음)
+        bool has_master = ctx.master_queue.peek_closest(ref_ts, master);
+        bool has_ur     = ctx.ur_queue.peek_closest(ref_ts, ur);
+ 
         // 만약 큐가 비어 있다면 실시간 최신 상태값으로 Fallback 처리
         if (!has_master) {
             std::shared_lock lock(ctx.master_mutex);
@@ -242,68 +251,77 @@ void recorder_thread_func(SharedContext& ctx, const YAML::Node& config) {
             std::shared_lock lock(ctx.ur_mutex);
             ur = ctx.ur_state;
         }
-
+ 
         // CSV 항상 기록
-        log.write(master, ur);
-
+        // log.write(master, ur);
+ 
         // SAVING ON일 때만 HDF5 큐에 추가
         {
             std::lock_guard<std::mutex> lock(ctx.flag_mutex);
             if (!hasFlag(ctx.system_flag, SystemFlag::SAVING))
                 continue;
         }
-
+ 
         SaveData sd;
         sd.timestamp_us = ref_ts;
         sd.master = master;
         sd.ur     = ur;
+ 
+        // 비전: ref_ts에 가장 가까운 프레임을 복사 (큐에서 제거하지 않음)
         for (auto& [role, queue] : ctx.vision_queues)
-            queue->pop_closest(ref_ts, sd.frames[role]);
-
+            queue->peek_closest(ref_ts, sd.frames[role]);
+ 
         {
             std::lock_guard<std::mutex> lock(ctx.save_mutex);
             ctx.save_queue.push(std::move(sd));
         }
         ctx.save_cv.notify_one();
     }
-
-    log.close();
+ 
+    // log.close();
     ctx.save_cv.notify_all(); // save_thread 종료 깨우기
 }
+
 
 void save_thread_func(SharedContext& ctx, const YAML::Node& config) {
     SaveManager save_manager(config);
 
-    while (true) {
+    while (running) {
+        // 1. SAVING ON 대기
         std::unique_lock<std::mutex> lock(ctx.save_mutex);
         ctx.save_cv.wait(lock, [&] {
-            return !ctx.save_queue.empty() || !running;
+            SystemFlag flag;
+            {
+                std::lock_guard<std::mutex> flag_lock(ctx.flag_mutex);
+                flag = ctx.system_flag;
+            }
+            return hasFlag(flag, SystemFlag::SAVING) || !running;
         });
 
-        while (!ctx.save_queue.empty()) {
-            SaveData sd = std::move(ctx.save_queue.front());
-            ctx.save_queue.pop();
-            lock.unlock();
+        if (!running) break;
 
-            if (!save_manager.isRecording())
-                save_manager.start();
-            save_manager.save(sd);
+        // 2. 파일 열기
+        save_manager.start();
 
-            lock.lock();
+        // 3. SAVING ON인 동안 데이터 처리
+        while (hasFlag(ctx.system_flag, SystemFlag::SAVING) || !ctx.save_queue.empty()) {
+            ctx.save_cv.wait(lock, [&] {
+                return !ctx.save_queue.empty() || !running;
+            });
+
+            // drain
+            while (!ctx.save_queue.empty()) {
+                SaveData sd = std::move(ctx.save_queue.front());
+                ctx.save_queue.pop();
+                lock.unlock();
+                save_manager.save(sd);
+                lock.lock();
+            }
         }
 
-        // 큐가 비었을 때 SAVING OFF면 파일 닫기
-        {
-            std::lock_guard<std::mutex> flag_lock(ctx.flag_mutex);
-            if (!hasFlag(ctx.system_flag, SystemFlag::SAVING))
-                save_manager.stop();
-        }
-
-        if (!running && ctx.save_queue.empty())
-            break;
+        // 4. 파일 닫기
+        save_manager.stop();
     }
-
-    save_manager.stop();
 }
 
 void rtde_thread_func(SharedContext& ctx, URHal& ur, const YAML::Node& config) {
@@ -311,14 +329,20 @@ void rtde_thread_func(SharedContext& ctx, URHal& ur, const YAML::Node& config) {
     const auto interval = std::chrono::microseconds(1'000'000 / rtde_hz); // 500Hz
     auto next = std::chrono::steady_clock::now();
 
+    // uint64_t total = 0, fail_count = 0;
     while (running) {
         std::this_thread::sleep_until(next);
         next += interval;
 
         // 1. UR에서 관절각 읽기
         URState state{};
-        if (!ur.readJointAngles(state))
+        // total++;
+        if (!ur.readJointAngles(state)) {
+            // fail_count++;
+            // if (fail_count % 500 == 1)
+            //     std::printf("[RTDE] read fail: %lu / %lu\n", fail_count, total);
             continue;
+        }
 
         // 2. ctx.ur_state 업데이트
         {
@@ -332,6 +356,11 @@ void rtde_thread_func(SharedContext& ctx, URHal& ur, const YAML::Node& config) {
                     std::chrono::steady_clock::now().time_since_epoch()).count());
         }
         ctx.ur_queue.push(state);
+
+        // if (total % 500 == 1)
+        //     std::printf("[RTDE] q[0..2]: %.4f %.4f %.4f  ts=%.3f\n",
+        //         state.joint_angle[0], state.joint_angle[1], state.joint_angle[2],
+        //         (double)state.timestamp_us / 1e6);
     }
 }
 

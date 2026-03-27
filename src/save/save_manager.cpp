@@ -19,6 +19,11 @@ bool SaveManager::isRecording() const {
 }
 
 bool SaveManager::start() {
+    if (is_recording_) {
+        std::cerr << "[SaveManager] 이미 녹화 중입니다." << std::endl;
+        return false;
+    }
+    
     try {
         fs::create_directories(output_path_);
         file_ = H5::H5File(generateFilename(), H5F_ACC_TRUNC);
