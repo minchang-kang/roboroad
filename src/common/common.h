@@ -173,7 +173,7 @@ struct SharedContext {
     std::mutex                flag_mutex;
 
     std::map<std::string, std::unique_ptr<VisionQueue>> vision_queues;
-    DataQueue<MasterState> master_queue{1000}; // 1초 분량 (1kHz 버퍼)
+    DataQueue<MasterState> master_queue{1000}; // 1초 분량 (250Hz 버퍼)
     DataQueue<URState>     ur_queue{500};      // 1초 분량 (500Hz 버퍼)
 
     std::queue<SaveData>            save_queue;

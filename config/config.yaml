@@ -56,10 +56,12 @@ vision:
   fps: 30
   queue_size: 30
   cameras:
-    - device: "/dev/camera_0"
+    - device: "/dev/camera_1"
       role: "front"
-    # - device: "/dev/camera_1"
-    #   role: "hand"
+    - device: "/dev/video4"
+      role: "hand"
+    - device: "/dev/video10"
+      role: "back"
 
 # ─── log (CSV 연속 로그, 항상 기록) ─────────────────────
 log:

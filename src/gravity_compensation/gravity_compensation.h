@@ -11,7 +11,7 @@ namespace rl { namespace mdl { class Dynamic; } }
 //
 // RL(Robotics Library) 동역학 모델을 이용해 6축 중력 보상 토크를 계산한다.
 //
-// 흐름 (gc_thread 1kHz):
+// 흐름 (gc_thread 250Hz):
 //   1. update(master) — joint_angle[6] 입력
 //   2. RL setPosition → calculateGravity → 토크 [Nm]
 //   3. 토크 → 목표 전류 변환 (Kt, gain, clamp)

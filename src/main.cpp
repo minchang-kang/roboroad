@@ -53,7 +53,7 @@ int main() {
     if (config["ur"]["auto_home"].as<bool>(false))
         ur.moveToHome();
 
-    // ─── RT 태스크 시작 (Xenomai 1kHz GC) ───────────
+    // ─── RT 태스크 시작 (Xenomai 250Hz GC) ───────────
     RTTask rt_task(ctx, dynamixel, gc);
     if (!rt_task.start()) return -1;
 
@@ -82,40 +82,6 @@ int main() {
 
     return 0;
 }
-
-
-// void gc_thread_func(SharedContext& ctx, DynamixelHAL& dynamixel, GravityCompensation& gc) {
-//     const auto interval = std::chrono::microseconds(1000); // 1kHz
-//     auto next = std::chrono::steady_clock::now();
-
-//     while (running) {
-//         std::this_thread::sleep_until(next);
-//         next += interval;
-
-//         MasterState master{};
-
-//         // 1. DXL에서 관절각 읽기
-//         if (!dynamixel.readAngles(master))
-//             continue;
-
-//         // 2. GC 계산 — master.torque[6] (Nm) + 내부 goal_cur_[6] (raw LSB) 채움
-//         gc.update(master);
-
-//         // 3. DXL에 목표 전류 전송
-//         dynamixel.writeCurrents(gc.getGoalCurrents());
-
-//         // 4. ctx.master_state 업데이트
-//         master.timestamp_us = static_cast<uint64_t>(
-//             std::chrono::duration_cast<std::chrono::microseconds>(
-//                 std::chrono::steady_clock::now().time_since_epoch()).count());
-//         {
-//             std::unique_lock lock(ctx.master_mutex);
-//             ctx.master_state = master;
-//         }
-//     }
-
-//     dynamixel.setTorqueEnable(false);
-// }
 
 void input_thread_func(SharedContext& ctx) {
     while (running) {
@@ -206,12 +172,12 @@ void vision_thread_func(SharedContext& ctx, const YAML::Node& config) {
                     ctx.vision_queues[role]->push(std::move(fd));
                 }
 
-                auto now = std::chrono::steady_clock::now();
-                if (now - last_debug >= std::chrono::seconds(2)) {
-                    std::printf("[DEBUG] vision_queue[%s] size: %zu\n",
-                        role.c_str(), ctx.vision_queues[role]->size());
-                    last_debug = now;
-                }
+                // auto now = std::chrono::steady_clock::now();
+                // if (now - last_debug >= std::chrono::seconds(2)) {
+                //     std::printf("[DEBUG] vision_queue[%s] size: %zu\n",
+                //         role.c_str(), ctx.vision_queues[role]->size());
+                //     last_debug = now;
+                // }
             }
         });
     }

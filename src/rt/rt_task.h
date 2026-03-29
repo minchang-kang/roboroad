@@ -9,7 +9,7 @@
 // gc_thread 를 Xenomai hard real-time 태스크로 실행한다.
 // GravityCompensation / DynamixelHAL 은 플랫폼 독립 알고리즘으로 그대로 유지.
 //
-// 흐름 (1kHz):
+// 흐름 (250Hz):
 //   rt_task_wait_period → readAngles → gc.update → writeCurrents
 //   → ctx.master_state 업데이트 → 오버런/실패 카운트 출력 (1초마다)
 //

@@ -1,7 +1,7 @@
 // ============================================================================
 // rt_task.cpp
 //
-// Xenomai Alchemy RT 태스크 — 1kHz GC 루프
+// Xenomai Alchemy RT 태스크 — 250Hz GC 루프
 //
 // 레퍼런스: /home/mugun/Desktop/roboroad/src/rt_task.cpp
 //   Xenomai API(rt_task_create/set_periodic/wait_period) + RL GC 루프 이식
@@ -23,7 +23,7 @@ extern std::atomic<bool> running;
 // Xenomai 태스크 핸들 (프로세스 당 하나)
 static RT_TASK g_rt_task;
 
-// RT 루프 주기: 1kHz = 1,000,000 ns
+// RT 루프 주기: 250Hz = 1,000,000 ns
 static constexpr RTIME RT_PERIOD_NS = 4'000'000ULL;
 
 // RT 태스크 우선순위 (1~99, 높을수록 우선)
@@ -84,7 +84,7 @@ bool RTTask::start()
         return false;
     }
 
-    printf("[RTTask] RT 태스크 시작 (1kHz, priority=%d)\n", RT_PRIORITY);
+    printf("[RTTask] RT 태스크 시작 (250Hz, priority=%d)\n", RT_PRIORITY);
     return true;
 }
 
@@ -109,12 +109,12 @@ void RTTask::taskEntry(void* arg)
 }
 
 // ============================================================================
-// run — 실제 1kHz RT 루프
+// run — 실제 250Hz RT 루프
 // ============================================================================
 
 void RTTask::run()
 {
-    rt_printf("[RTTask] 루프 시작 (1kHz | SyncRead → GC → SyncWrite)\n");
+    rt_printf("[RTTask] 루프 시작 (250Hz | SyncRead → GC → SyncWrite)\n");
 
     uint64_t cycle    = 0;
     uint64_t overruns = 0;
@@ -162,7 +162,7 @@ void RTTask::run()
         }
         ctx_.master_queue.push(master);
 
-        // 5. 1초마다 RT-safe 콘솔 출력 (1kHz 기준 1000 사이클)
+        // 5. 1초마다 RT-safe 콘솔 출력 (250Hz 기준 1000 사이클)
         if (cycle % 1000 == 0) {
             rt_printf("[RTTask] cycle:%-8lu overrun:%-4lu rfail:%-4lu wfail:%-4lu\n",
                       (unsigned long)cycle,

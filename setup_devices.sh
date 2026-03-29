@@ -23,18 +23,18 @@ ls -la /dev/ttyUSB0
 echo "  Latency Timer: $(cat /sys/bus/usb-serial/devices/ttyUSB0/latency_timer)ms"
 
 # ── 카메라 설정 ───────────────────────────────────────────
-echo ""
-echo "[5/5] 카메라 설정 (/dev/camera_0)..."
-if [ ! -e /dev/camera_0 ]; then
-    echo "  경고: /dev/camera_0 없음, 건너뜀"
-else
-    v4l2-ctl -d /dev/camera_0 -l
-    v4l2-ctl -d /dev/camera_0 -c exposure_dynamic_framerate=0
-    echo "  exposure_dynamic_framerate=0 설정 완료"
-fi
+# echo ""
+# echo "[5/5] 카메라 설정 (/dev/camera_0)..."
+# if [ ! -e /dev/camera_0 ]; then
+#     echo "  경고: /dev/camera_0 없음, 건너뜀"
+# else
+#     v4l2-ctl -d /dev/camera_0 -l
+#     v4l2-ctl -d /dev/camera_0 -c exposure_dynamic_framerate=0
+#     echo "  exposure_dynamic_framerate=0 설정 완료"
+# fi
 
-echo ""
-echo "세팅 완료."
+# echo ""
+# echo "세팅 완료."
 
 echo ""
 echo "[6/6] 카메라 설정 (/dev/camera_1)..."
@@ -48,3 +48,4 @@ fi
 
 echo ""
 echo "세팅 완료."
+
