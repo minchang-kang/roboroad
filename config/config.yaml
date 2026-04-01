@@ -1,6 +1,6 @@
 # ─── RT / 타이밍 ──────────────────────────────────────
 timing:
-  gc_loop_hz: 1000
+  gc_loop_hz: 250
   teleop_loop_hz: 500
   rtde_loop_hz: 500
   recorder_loop_hz: 30
@@ -15,6 +15,10 @@ dynamixel:
 fsr:
   pressure_threshold: 0.5
   recv_port: 9090
+
+# ─── Button (Raspberry Pi GPIO → SPRAY 플래그) ────────
+button:
+  port: 5000
 
 # ─── UR ──────────────────────────────────────────────
 ur:
@@ -56,11 +60,11 @@ vision:
   fps: 30
   queue_size: 30
   cameras:
-    - device: "/dev/camera_1"
+    - device: "/dev/camera_0"
       role: "front"
-    - device: "/dev/video4"
+    - device: "/dev/video8"
       role: "hand"
-    - device: "/dev/video10"
+    - device: "/dev/video14"
       role: "back"
 
 # ─── log (CSV 연속 로그, 항상 기록) ─────────────────────

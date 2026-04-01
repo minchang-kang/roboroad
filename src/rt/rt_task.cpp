@@ -24,7 +24,7 @@ extern std::atomic<bool> running;
 static RT_TASK g_rt_task;
 
 // RT 루프 주기: 250Hz = 1,000,000 ns
-static constexpr RTIME RT_PERIOD_NS = 4'000'000ULL;
+static constexpr RTIME RT_PERIOD_NS = 16'000'000ULL;
 
 // RT 태스크 우선순위 (1~99, 높을수록 우선)
 static constexpr int RT_PRIORITY = 90;

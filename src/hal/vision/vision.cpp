@@ -47,7 +47,7 @@ bool Vision::read(cv::Mat& frame) {
     bool ret = cap_.read(frame);
     auto t2 = std::chrono::steady_clock::now();
 
-    if (++read_count_ % 50 == 0) {
+    if (++read_count_ % 1000 == 0) {
         double ms = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() / 1000.0;
         std::cout << "[" << role_ << "::read] " << ms << " ms" << std::endl;
     }

@@ -9,6 +9,7 @@
 // #include "hal/fsr"
 #include "hal/ur/ur_hal.h"
 #include "hal/vision/vision_manager.h"
+#include "hal/button/button_server.h"
 #include "gravity_compensation/gravity_compensation.h"
 #include "teleop/teleop.h"
 #include "save/save_manager.h"
@@ -30,6 +31,7 @@ void recorder_thread_func(SharedContext& ctx, const YAML::Node& config);
 void save_thread_func(SharedContext& ctx, const YAML::Node& config);
 void input_thread_func(SharedContext& ctx);
 void fsr_thread_func(SharedContext& ctx);
+void button_thread_func(SharedContext& ctx, const YAML::Node& config);
 
 int main() {
     // ─── 시그널 등록 ─────────────────────────────────
@@ -64,7 +66,8 @@ int main() {
     std::thread recorder_thread(recorder_thread_func, std::ref(ctx), std::cref(config));
     std::thread save_thread(save_thread_func, std::ref(ctx), std::cref(config));
     std::thread input_thread(input_thread_func, std::ref(ctx));
-    std::thread fsr_thread(fsr_thread_func, std::ref(ctx));
+    // std::thread fsr_thread(fsr_thread_func, std::ref(ctx));
+    std::thread button_thread(button_thread_func, std::ref(ctx), std::cref(config));
 
     // ─── 종료 대기 ───────────────────────────────────
     rt_task.stop();
@@ -74,7 +77,8 @@ int main() {
     recorder_thread.join();
     save_thread.join();
     input_thread.join();
-    fsr_thread.join();
+    // fsr_thread.join();
+    button_thread.join();
 
     // ─── 종료 처리 ───────────────────────────────────
     dynamixel.close();
@@ -334,4 +338,11 @@ void fsr_thread_func(SharedContext& ctx) {
     while (running) {
 
     }
+}
+
+void button_thread_func(SharedContext& ctx, const YAML::Node& config) {
+    ButtonServer server(config);
+    if (!server.init()) return;
+    server.run(ctx, running);
+    server.close();
 }
