@@ -62,7 +62,7 @@ vision:
   cameras:
     - device: "/dev/camera_0"
       role: "front"
-    - device: "/dev/video8"
+    - device: "/dev/video4"
       role: "hand"
     - device: "/dev/video14"
       role: "back"

@@ -3,6 +3,7 @@
 #include <H5Cpp.h>
 #include <string>
 #include <map>
+#include <vector>
 
 class SaveManager {
 public:
@@ -11,6 +12,7 @@ public:
 
     bool start();
     void save(const SaveData& data);
+    void saveBatch(const std::vector<SaveData>& batch);
     void stop();
     bool isRecording() const;
 
@@ -29,5 +31,6 @@ private:
     void appendRow(const SaveData& data);
 
     std::string        output_path_;
+    int                epoch_count_ = 104;
     std::string generateFilename();
 };

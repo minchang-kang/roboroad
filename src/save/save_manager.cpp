@@ -1,6 +1,5 @@
 #include "save/save_manager.h"
-#include <chrono>
-#include <ctime>
+#include <cstdio>
 #include <filesystem>
 #include <iostream>
 #include <opencv2/opencv.hpp>
@@ -144,6 +143,90 @@ void SaveManager::appendRow(const SaveData& data) {
     }
 }
 
+void SaveManager::saveBatch(const std::vector<SaveData>& batch) {
+    if (!is_recording_ || batch.empty()) return;
+    if (!datasets_initialized_)
+        initDatasets(batch[0]);
+
+    hsize_t n = frame_count_;
+    hsize_t B = (hsize_t)batch.size();
+
+    // ── timestamps ───────────────────────────────────
+    {
+        std::vector<int64_t> buf(B);
+        for (size_t i = 0; i < B; i++)
+            buf[i] = static_cast<int64_t>(batch[i].timestamp_us);
+
+        hsize_t newdims[2] = {n + B, 1};
+        ds_timestamp_.extend(newdims);
+        H5::DataSpace fsp = ds_timestamp_.getSpace();
+        hsize_t start[2] = {n, 0}, count[2] = {B, 1};
+        fsp.selectHyperslab(H5S_SELECT_SET, count, start);
+        H5::DataSpace msp(2, count);
+        ds_timestamp_.write(buf.data(), H5::PredType::NATIVE_INT64, msp, fsp);
+    }
+
+    // ── master_joint ─────────────────────────────────
+    {
+        std::vector<double> buf(B * 6);
+        for (size_t i = 0; i < B; i++)
+            std::copy(batch[i].master.joint_angle,
+                      batch[i].master.joint_angle + 6,
+                      buf.data() + i * 6);
+
+        hsize_t newdims[2] = {n + B, 6};
+        ds_master_joint_.extend(newdims);
+        H5::DataSpace fsp = ds_master_joint_.getSpace();
+        hsize_t start[2] = {n, 0}, count[2] = {B, 6};
+        fsp.selectHyperslab(H5S_SELECT_SET, count, start);
+        H5::DataSpace msp(2, count);
+        ds_master_joint_.write(buf.data(), H5::PredType::NATIVE_DOUBLE, msp, fsp);
+    }
+
+    // ── ur_joint ─────────────────────────────────────
+    {
+        std::vector<double> buf(B * 6);
+        for (size_t i = 0; i < B; i++)
+            std::copy(batch[i].ur.joint_angle,
+                      batch[i].ur.joint_angle + 6,
+                      buf.data() + i * 6);
+
+        hsize_t newdims[2] = {n + B, 6};
+        ds_ur_joint_.extend(newdims);
+        H5::DataSpace fsp = ds_ur_joint_.getSpace();
+        hsize_t start[2] = {n, 0}, count[2] = {B, 6};
+        fsp.selectHyperslab(H5S_SELECT_SET, count, start);
+        H5::DataSpace msp(2, count);
+        ds_ur_joint_.write(buf.data(), H5::PredType::NATIVE_DOUBLE, msp, fsp);
+    }
+
+    // ── images ───────────────────────────────────────
+    for (auto& [role, ds] : ds_images_) {
+        int H = batch[0].frames.at(role).frame.rows;
+        int W = batch[0].frames.at(role).frame.cols;
+        std::vector<uint8_t> buf(B * H * W * 3);
+
+        for (size_t i = 0; i < B; i++) {
+            auto it = batch[i].frames.find(role);
+            if (it == batch[i].frames.end() || it->second.frame.empty()) continue;
+            cv::Mat rgb;
+            cv::cvtColor(it->second.frame, rgb, cv::COLOR_BGR2RGB);
+            std::memcpy(buf.data() + i * (size_t)H * W * 3, rgb.data, (size_t)H * W * 3);
+        }
+
+        hsize_t newdims[4] = {n + B, (hsize_t)H, (hsize_t)W, 3};
+        ds.extend(newdims);
+        H5::DataSpace fsp = ds.getSpace();
+        hsize_t start[4] = {n, 0, 0, 0};
+        hsize_t count[4] = {B, (hsize_t)H, (hsize_t)W, 3};
+        fsp.selectHyperslab(H5S_SELECT_SET, count, start);
+        H5::DataSpace msp(4, count);
+        ds.write(buf.data(), H5::PredType::NATIVE_UINT8, msp, fsp);
+    }
+
+    frame_count_ += B;
+}
+
 void SaveManager::save(const SaveData& data) {
     if (!is_recording_) return;
 
@@ -163,10 +246,7 @@ void SaveManager::stop() {
 }
 
 std::string SaveManager::generateFilename() {
-    auto now = std::chrono::system_clock::now();
-    std::time_t t = std::chrono::system_clock::to_time_t(now);
-    std::tm* tm = std::localtime(&t);
-    char filename[64];
-    std::strftime(filename, sizeof(filename), "data_%Y%m%d_%H%M%S.hdf5", tm);
+    char filename[32];
+    std::snprintf(filename, sizeof(filename), "Epoch_%03d.hdf5", ++epoch_count_);
     return output_path_ + std::string(filename);
 }

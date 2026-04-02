@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "common/common.h"
+#include "common/diag.h"
 #include "hal/dynamixel/dynamixel_hal.h"
 // #include "hal/fsr"
 #include "hal/ur/ur_hal.h"
@@ -26,11 +27,11 @@ void signal_handler(int sig) {
 // ─── 스레드 함수 선언 ────────────────────────────────
 void teleop_thread_func(SharedContext& ctx, URHal& ur, const YAML::Node& config);
 void rtde_thread_func(SharedContext& ctx, URHal& ur, const YAML::Node& config);
-void vision_thread_func(SharedContext& ctx, const YAML::Node& config);
+void vision_thread_func(SharedContext& ctx, DiagContext& diag, const YAML::Node& config);
 void recorder_thread_func(SharedContext& ctx, const YAML::Node& config);
-void save_thread_func(SharedContext& ctx, const YAML::Node& config);
+void save_thread_func(SharedContext& ctx, DiagContext& diag, const YAML::Node& config);
 void input_thread_func(SharedContext& ctx);
-void fsr_thread_func(SharedContext& ctx);
+// void fsr_thread_func(SharedContext& ctx);
 void button_thread_func(SharedContext& ctx, const YAML::Node& config);
 
 int main() {
@@ -42,6 +43,7 @@ int main() {
 
     // ─── 객체 생성 ───────────────────────────────────
     SharedContext ctx;
+    DiagContext   diag;
     DynamixelHAL dynamixel(config);
     URHal ur(config);
     GravityCompensation gc(config);
@@ -62,9 +64,9 @@ int main() {
     // ─── 스레드 생성 ─────────────────────────────────
     std::thread teleop_thread(teleop_thread_func, std::ref(ctx), std::ref(ur), std::cref(config));
     std::thread rtde_thread(rtde_thread_func, std::ref(ctx), std::ref(ur), std::cref(config));
-    std::thread vision_thread(vision_thread_func, std::ref(ctx), std::cref(config));
+    std::thread vision_thread(vision_thread_func, std::ref(ctx), std::ref(diag), std::cref(config));
     std::thread recorder_thread(recorder_thread_func, std::ref(ctx), std::cref(config));
-    std::thread save_thread(save_thread_func, std::ref(ctx), std::cref(config));
+    std::thread save_thread(save_thread_func, std::ref(ctx), std::ref(diag), std::cref(config));
     std::thread input_thread(input_thread_func, std::ref(ctx));
     // std::thread fsr_thread(fsr_thread_func, std::ref(ctx));
     std::thread button_thread(button_thread_func, std::ref(ctx), std::cref(config));
@@ -159,13 +161,13 @@ void teleop_thread_func(SharedContext& ctx, URHal& ur, const YAML::Node& config)
     }
 }
 
-void vision_thread_func(SharedContext& ctx, const YAML::Node& config) {
+void vision_thread_func(SharedContext& ctx, DiagContext& diag, const YAML::Node& config) {
     VisionManager vision_manager(config, ctx);
     vision_manager.openAll();
 
     std::vector<std::thread> cam_threads;
     for (auto& [role, queue] : ctx.vision_queues) {
-        cam_threads.emplace_back([&ctx, &vision_manager, role = role]() {
+        cam_threads.emplace_back([&ctx, &diag, &vision_manager, role = role]() {
             Vision& cam = vision_manager.get(role);
             auto last_debug = std::chrono::steady_clock::now();
             while (running) {
@@ -174,6 +176,14 @@ void vision_thread_func(SharedContext& ctx, const YAML::Node& config) {
                     fd.timestamp_us = std::chrono::duration_cast<std::chrono::microseconds>(
                         std::chrono::steady_clock::now().time_since_epoch()).count();
                     ctx.vision_queues[role]->push(std::move(fd));
+                } else {
+                    SystemFlag flag;
+                    {
+                        std::lock_guard<std::mutex> lock(ctx.flag_mutex);
+                        flag = ctx.system_flag;
+                    }
+                    if (hasFlag(flag, SystemFlag::SAVING))
+                        diag.record_drop(role);
                 }
 
                 // auto now = std::chrono::steady_clock::now();
@@ -253,7 +263,7 @@ void recorder_thread_func(SharedContext& ctx, const YAML::Node& config) {
 }
 
 
-void save_thread_func(SharedContext& ctx, const YAML::Node& config) {
+void save_thread_func(SharedContext& ctx, DiagContext& diag, const YAML::Node& config) {
     SaveManager save_manager(config);
 
     while (running) {
@@ -271,7 +281,12 @@ void save_thread_func(SharedContext& ctx, const YAML::Node& config) {
         if (!running) break;
 
         // 2. 파일 열기
+        diag.reset();
         save_manager.start();
+
+        // write 성능 측정용
+        uint64_t write_sum_us = 0, write_min_us = UINT64_MAX, write_max_us = 0;
+        uint64_t write_count = 0;
 
         // 3. SAVING ON인 동안 데이터 처리
         while (hasFlag(ctx.system_flag, SystemFlag::SAVING) || !ctx.save_queue.empty()) {
@@ -279,18 +294,40 @@ void save_thread_func(SharedContext& ctx, const YAML::Node& config) {
                 return !ctx.save_queue.empty() || !running;
             });
 
-            // drain
+            // 큐 전체를 한 번에 수집 후 배치 write
+            std::vector<SaveData> batch;
             while (!ctx.save_queue.empty()) {
-                SaveData sd = std::move(ctx.save_queue.front());
+                batch.push_back(std::move(ctx.save_queue.front()));
                 ctx.save_queue.pop();
-                lock.unlock();
-                save_manager.save(sd);
-                lock.lock();
             }
+            lock.unlock();
+
+            if (!batch.empty()) {
+                auto t0 = std::chrono::steady_clock::now();
+                save_manager.saveBatch(batch);
+                auto elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                    std::chrono::steady_clock::now() - t0).count();
+
+                write_sum_us += elapsed_us;
+                write_min_us  = std::min(write_min_us, (uint64_t)elapsed_us);
+                write_max_us  = std::max(write_max_us, (uint64_t)elapsed_us);
+                write_count  += batch.size();
+            }
+
+            lock.lock();
         }
 
         // 4. 파일 닫기
         save_manager.stop();
+        diag.report();
+
+        if (write_count > 0) {
+            std::cout << "[save_thread] write 성능 | "
+                      << "avg=" << write_sum_us / write_count / 1000 << "ms "
+                      << "min=" << write_min_us / 1000 << "ms "
+                      << "max=" << write_max_us / 1000 << "ms "
+                      << "frames=" << write_count << "\n";
+        }
     }
 }
 
