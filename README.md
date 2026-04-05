@@ -75,3 +75,11 @@ SUBSYSTEM=="video4linux", ENV{ID_SERIAL_SHORT}=="0210BD9F", ATTR{index}=="0", SY
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ls /dev/camera*
 ```
+
+4. 마우스 연결
+
+실행 전 확인사항:
+
+config.yaml의 mouse.device_name 값을 실제 마우스 장치명으로 맞춰야 합니다.
+
+확인 방법: cat /proc/bus/input/devices | grep -A1 "Mouse" 로 N: 필드 

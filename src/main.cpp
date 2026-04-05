@@ -7,14 +7,12 @@
 #include "common/common.h"
 #include "common/diag.h"
 #include "hal/dynamixel/dynamixel_hal.h"
-// #include "hal/fsr"
 #include "hal/ur/ur_hal.h"
 #include "hal/vision/vision_manager.h"
-#include "hal/button/button_server.h"
+#include "hal/mouse/mouse_handler.h"
 #include "gravity_compensation/gravity_compensation.h"
 #include "teleop/teleop.h"
 #include "save/save_manager.h"
-#include "save/log_manager.h"
 #include "rt/rt_task.h"
 
 // ─── 종료 플래그 ─────────────────────────────────────
@@ -31,8 +29,7 @@ void vision_thread_func(SharedContext& ctx, DiagContext& diag, const YAML::Node&
 void recorder_thread_func(SharedContext& ctx, const YAML::Node& config);
 void save_thread_func(SharedContext& ctx, DiagContext& diag, const YAML::Node& config);
 void input_thread_func(SharedContext& ctx);
-// void fsr_thread_func(SharedContext& ctx);
-void button_thread_func(SharedContext& ctx, const YAML::Node& config);
+void mouse_thread_func(SharedContext& ctx, const YAML::Node& config);
 
 int main() {
     // ─── 시그널 등록 ─────────────────────────────────
@@ -68,8 +65,7 @@ int main() {
     std::thread recorder_thread(recorder_thread_func, std::ref(ctx), std::cref(config));
     std::thread save_thread(save_thread_func, std::ref(ctx), std::ref(diag), std::cref(config));
     std::thread input_thread(input_thread_func, std::ref(ctx));
-    // std::thread fsr_thread(fsr_thread_func, std::ref(ctx));
-    std::thread button_thread(button_thread_func, std::ref(ctx), std::cref(config));
+    std::thread mouse_thread(mouse_thread_func, std::ref(ctx), std::cref(config));
 
     // ─── 종료 대기 ───────────────────────────────────
     rt_task.stop();
@@ -79,8 +75,7 @@ int main() {
     recorder_thread.join();
     save_thread.join();
     input_thread.join();
-    // fsr_thread.join();
-    button_thread.join();
+    mouse_thread.join();
 
     // ─── 종료 처리 ───────────────────────────────────
     dynamixel.close();
@@ -169,7 +164,6 @@ void vision_thread_func(SharedContext& ctx, DiagContext& diag, const YAML::Node&
     for (auto& [role, queue] : ctx.vision_queues) {
         cam_threads.emplace_back([&ctx, &diag, &vision_manager, role = role]() {
             Vision& cam = vision_manager.get(role);
-            auto last_debug = std::chrono::steady_clock::now();
             while (running) {
                 FrameData fd;
                 if (cam.read(fd.frame)) {
@@ -185,13 +179,6 @@ void vision_thread_func(SharedContext& ctx, DiagContext& diag, const YAML::Node&
                     if (hasFlag(flag, SystemFlag::SAVING))
                         diag.record_drop(role);
                 }
-
-                // auto now = std::chrono::steady_clock::now();
-                // if (now - last_debug >= std::chrono::seconds(2)) {
-                //     std::printf("[DEBUG] vision_queue[%s] size: %zu\n",
-                //         role.c_str(), ctx.vision_queues[role]->size());
-                //     last_debug = now;
-                // }
             }
         });
     }
@@ -201,12 +188,9 @@ void vision_thread_func(SharedContext& ctx, DiagContext& diag, const YAML::Node&
 }
 
 void recorder_thread_func(SharedContext& ctx, const YAML::Node& config) {
-    // LogManager log(config);
-    // if (!log.open()) return;
- 
     const int recorder_hz = config["timing"]["recorder_loop_hz"].as<int>();
     auto next = std::chrono::steady_clock::now();
-    const auto interval = std::chrono::milliseconds(1'000 / recorder_hz); // 50Hz
+    const auto interval = std::chrono::milliseconds(1'000 / recorder_hz);
  
     while (running) {
         std::this_thread::sleep_until(next);
@@ -232,9 +216,6 @@ void recorder_thread_func(SharedContext& ctx, const YAML::Node& config) {
             ur = ctx.ur_state;
         }
  
-        // CSV 항상 기록
-        // log.write(master, ur);
- 
         // SAVING ON일 때만 HDF5 큐에 추가
         {
             std::lock_guard<std::mutex> lock(ctx.flag_mutex);
@@ -246,6 +227,10 @@ void recorder_thread_func(SharedContext& ctx, const YAML::Node& config) {
         sd.timestamp_us = ref_ts;
         sd.master = master;
         sd.ur     = ur;
+        {
+            std::lock_guard<std::mutex> lock(ctx.mouse_mutex);
+            sd.mouse = ctx.mouse_state;
+        }
  
         // 비전: ref_ts에 가장 가까운 프레임을 복사 (큐에서 제거하지 않음)
         for (auto& [role, queue] : ctx.vision_queues)
@@ -258,8 +243,7 @@ void recorder_thread_func(SharedContext& ctx, const YAML::Node& config) {
         ctx.save_cv.notify_one();
     }
  
-    // log.close();
-    ctx.save_cv.notify_all(); // save_thread 종료 깨우기
+    ctx.save_cv.notify_all();
 }
 
 
@@ -289,7 +273,12 @@ void save_thread_func(SharedContext& ctx, DiagContext& diag, const YAML::Node& c
         uint64_t write_count = 0;
 
         // 3. SAVING ON인 동안 데이터 처리
-        while (hasFlag(ctx.system_flag, SystemFlag::SAVING) || !ctx.save_queue.empty()) {
+        auto is_saving = [&] {
+            std::lock_guard<std::mutex> fl(ctx.flag_mutex);
+            return hasFlag(ctx.system_flag, SystemFlag::SAVING);
+        };
+
+        while ((is_saving() || !ctx.save_queue.empty()) && running) {
             ctx.save_cv.wait(lock, [&] {
                 return !ctx.save_queue.empty() || !running;
             });
@@ -333,25 +322,17 @@ void save_thread_func(SharedContext& ctx, DiagContext& diag, const YAML::Node& c
 
 void rtde_thread_func(SharedContext& ctx, URHal& ur, const YAML::Node& config) {
     const int rtde_hz = config["timing"]["rtde_loop_hz"].as<int>();
-    const auto interval = std::chrono::microseconds(1'000'000 / rtde_hz); // 500Hz
+    const auto interval = std::chrono::microseconds(1'000'000 / rtde_hz);
     auto next = std::chrono::steady_clock::now();
 
-    // uint64_t total = 0, fail_count = 0;
     while (running) {
         std::this_thread::sleep_until(next);
         next += interval;
 
-        // 1. UR에서 관절각 읽기
         URState state{};
-        // total++;
-        if (!ur.readJointAngles(state)) {
-            // fail_count++;
-            // if (fail_count % 500 == 1)
-            //     std::printf("[RTDE] read fail: %lu / %lu\n", fail_count, total);
+        if (!ur.readJointAngles(state))
             continue;
-        }
 
-        // 2. ctx.ur_state 업데이트
         {
             std::unique_lock lock(ctx.ur_mutex);
             ctx.ur_state = state;
@@ -363,23 +344,12 @@ void rtde_thread_func(SharedContext& ctx, URHal& ur, const YAML::Node& config) {
                     std::chrono::steady_clock::now().time_since_epoch()).count());
         }
         ctx.ur_queue.push(state);
-
-        // if (total % 500 == 1)
-        //     std::printf("[RTDE] q[0..2]: %.4f %.4f %.4f  ts=%.3f\n",
-        //         state.joint_angle[0], state.joint_angle[1], state.joint_angle[2],
-        //         (double)state.timestamp_us / 1e6);
     }
 }
 
-void fsr_thread_func(SharedContext& ctx) {
-    while (running) {
-
-    }
-}
-
-void button_thread_func(SharedContext& ctx, const YAML::Node& config) {
-    ButtonServer server(config);
-    if (!server.init()) return;
-    server.run(ctx, running);
-    server.close();
+void mouse_thread_func(SharedContext& ctx, const YAML::Node& config) {
+    MouseHandler mouse(config);
+    if (!mouse.init()) return;
+    mouse.run(ctx, running);
+    mouse.close();
 }

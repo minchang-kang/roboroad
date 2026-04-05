@@ -2,10 +2,9 @@
 // ur_hal.cpp
 //
 // UR 로봇 RTDE 통신 구현
-//
-// 레퍼런스: /home/mugun/Desktop/roboroad/src/ur_threads.cpp
-//   - ur_rtde_thread  : RTDEReceiveInterface → readJointAngles()
-//   - ur_servo_thread : RTDEControlInterface servoJ → writeJointAngles()
+//   readJointAngles  : RTDEReceiveInterface::getActualQ()
+//   writeJointAngles : RTDEControlInterface::servoJ()
+//   moveToHome       : servoJ 중단 후 moveJ로 홈 이동
 // ============================================================================
 
 #include "hal/ur/ur_hal.h"
@@ -105,7 +104,6 @@ void URHal::close()
 
 // ============================================================================
 // readJointAngles — RTDEReceiveInterface::getActualQ()
-//   레퍼런스 ur_rtde_thread 에서 getActualQ() 로 수신하던 부분
 // ============================================================================
 
 bool URHal::readJointAngles(URState& state)
@@ -133,7 +131,6 @@ bool URHal::readJointAngles(URState& state)
 
 // ============================================================================
 // writeJointAngles — RTDEControlInterface::servoJ()
-//   레퍼런스 ur_servo_thread 의 servoJ(cmd_q, 0.0, 0.0, 0.002, 0.05, 700.0)
 // ============================================================================
 
 bool URHal::writeJointAngles(const URState& state)

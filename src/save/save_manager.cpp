@@ -22,10 +22,12 @@ bool SaveManager::start() {
         std::cerr << "[SaveManager] 이미 녹화 중입니다." << std::endl;
         return false;
     }
-    
+
     try {
         fs::create_directories(output_path_);
-        file_ = H5::H5File(generateFilename(), H5F_ACC_TRUNC);
+        std::string fname = generateFilename();
+        std::cout << "[SaveManager] 저장 시작: " << fname << std::endl;
+        file_ = H5::H5File(fname, H5F_ACC_TRUNC);
         file_.createGroup("/observations");
         file_.createGroup("/observations/images");
         is_recording_        = true;
@@ -62,6 +64,17 @@ void SaveManager::initDatasets(const SaveData& first) {
             H5::PredType::NATIVE_DOUBLE, sp6, plist);
         ds_ur_joint_     = file_.createDataSet("/observations/ur_joint",
             H5::PredType::NATIVE_DOUBLE, sp6, plist);
+    }
+
+    // ── mouse_action dataset ─────────────────────────────
+    {
+        hsize_t init[2] = {0, 1};
+        hsize_t max[2]  = {H5S_UNLIMITED, 1};
+        hsize_t chunk[2]= {64, 1};
+        plist.setChunk(2, chunk);
+        H5::DataSpace sp(2, init, max);
+        ds_mouse_action_ = file_.createDataSet("/observations/mouse_action",
+            H5::PredType::NATIVE_UINT8, sp, plist);
     }
 
     // ── 이미지 datasets ──────────────────────────────────
@@ -200,6 +213,21 @@ void SaveManager::saveBatch(const std::vector<SaveData>& batch) {
         ds_ur_joint_.write(buf.data(), H5::PredType::NATIVE_DOUBLE, msp, fsp);
     }
 
+    // ── mouse_action ─────────────────────────────────
+    {
+        std::vector<uint8_t> buf(B);
+        for (size_t i = 0; i < B; i++)
+            buf[i] = batch[i].mouse.pressed;
+
+        hsize_t newdims[2] = {n + B, 1};
+        ds_mouse_action_.extend(newdims);
+        H5::DataSpace fsp = ds_mouse_action_.getSpace();
+        hsize_t start[2] = {n, 0}, count[2] = {B, 1};
+        fsp.selectHyperslab(H5S_SELECT_SET, count, start);
+        H5::DataSpace msp(2, count);
+        ds_mouse_action_.write(buf.data(), H5::PredType::NATIVE_UINT8, msp, fsp);
+    }
+
     // ── images ───────────────────────────────────────
     for (auto& [role, ds] : ds_images_) {
         int H = batch[0].frames.at(role).frame.rows;
@@ -227,16 +255,6 @@ void SaveManager::saveBatch(const std::vector<SaveData>& batch) {
     frame_count_ += B;
 }
 
-void SaveManager::save(const SaveData& data) {
-    if (!is_recording_) return;
-
-    if (!datasets_initialized_)
-        initDatasets(data);
-
-    appendRow(data);
-    frame_count_++;
-}
-
 void SaveManager::stop() {
     if (is_recording_) {
         file_.close();
@@ -246,7 +264,15 @@ void SaveManager::stop() {
 }
 
 std::string SaveManager::generateFilename() {
+    int max_epoch = 0;
+    std::error_code ec;
+    for (const auto& entry : fs::directory_iterator(output_path_, ec)) {
+        int num = 0;
+        if (std::sscanf(entry.path().filename().string().c_str(),
+                        "Epoch_%d.hdf5", &num) == 1)
+            max_epoch = std::max(max_epoch, num);
+    }
     char filename[32];
-    std::snprintf(filename, sizeof(filename), "Epoch_%03d.hdf5", ++epoch_count_);
-    return output_path_ + std::string(filename);
+    std::snprintf(filename, sizeof(filename), "Epoch_%03d.hdf5", max_epoch + 1);
+    return output_path_ + filename;
 }

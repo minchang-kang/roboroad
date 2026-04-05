@@ -12,6 +12,7 @@ VisionManager::VisionManager(const YAML::Node& config, SharedContext& ctx) {
     for (const auto& cam : vcfg["cameras"]) {
         std::string device = cam["device"].as<std::string>();
         std::string role   = cam["role"].as<std::string>();
+
         cameras_.emplace(role, Vision(device, role, width, height, fps));
         ctx.vision_queues[role] = std::make_unique<VisionQueue>(queue_size);
     }

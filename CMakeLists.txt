@@ -83,7 +83,7 @@ add_executable(${PROJECT_NAME}
     src/save/save_manager.cpp
     src/save/log_manager.cpp
     src/rt/rt_task.cpp
-    src/hal/button/button_server.cpp
+    src/hal/mouse/mouse_handler.cpp
     ${DYNAMIXEL_SRC}
 )
 

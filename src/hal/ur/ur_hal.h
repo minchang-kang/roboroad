@@ -49,9 +49,9 @@ private:
     std::string ip_;
 
     // servoJ 파라미터 (레퍼런스: ur_threads.cpp)
-    double servoj_dt_;               // 호출 주기 [s]  = 1/500Hz = 0.002
-    double servoj_lookahead_time_;   // lookahead [s]  기본 0.05
-    double servoj_gain_;             // gain            기본 700
+    double servoj_dt_;               // 호출 주기 [s] = 1/500Hz = 0.002
+    double servoj_lookahead_time_;   // lookahead [s]
+    double servoj_gain_;             // gain
 
     // 홈 위치 [rad]
     double home_q_[6];

@@ -107,12 +107,18 @@ struct URState {
     uint64_t timestamp_us;
 };
 
+struct MouseState {
+    uint8_t  pressed      = 0;   // 1: 좌클릭 누름, 0: 때짐
+    uint64_t timestamp_us = 0;   // 이벤트 발생 시각 [μs]
+};
+
 
 // ─── 저장 데이터 ──────────────────────────────────────
 
 struct SaveData {
     MasterState                      master;
     URState                          ur;
+    MouseState                       mouse;
     std::map<std::string, FrameData> frames;  // role → frame
     uint64_t                         timestamp_us;
 };
@@ -124,8 +130,8 @@ enum class SystemFlag : uint8_t {
     IDLE    = 0b00000000,
     HANDLE  = 0b00000001,   // GC 모드 변경 트리거
     SPRAY   = 0b00000010,   // trigger 버튼
-    TELEOP  = 0b00000100,   // 키보드 on/off
-    SAVING  = 0b00001000    // 키보드 on/off
+    TELEOP  = 0b00000100,   // 텔레옵 on/off (키보드 T)
+    SAVING  = 0b00001000    // HDF5 저장 on/off (키보드 S)
 };
 
 
@@ -171,6 +177,9 @@ struct SharedContext {
     mutable std::shared_mutex master_mutex;
     mutable std::shared_mutex ur_mutex;
     std::mutex                flag_mutex;
+
+    MouseState  mouse_state;
+    std::mutex  mouse_mutex;
 
     std::map<std::string, std::unique_ptr<VisionQueue>> vision_queues;
     DataQueue<MasterState> master_queue{1000}; // 1초 분량 (250Hz 버퍼)

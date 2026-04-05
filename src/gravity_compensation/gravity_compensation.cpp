@@ -1,12 +1,7 @@
 // ============================================================================
 // gravity_compensation.cpp
 //
-// RL(Robotics Library) 기반 6축 중력 보상 구현
-//
-// 레퍼런스: /home/mugun/Desktop/roboroad/src/rt_task.cpp
-//   rt_gravity_task() 의 중력 보상 파이프라인을 클래스로 이식
-//
-// 파이프라인:
+// RL(Robotics Library) 기반 6축 중력 보상
 //   joint_angle[rad] → RL calculateGravity → tau[Nm]
 //   → 방향 적용 → 게인·전류 변환 → clamp → goal_cur[raw]
 // ============================================================================

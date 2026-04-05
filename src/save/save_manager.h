@@ -25,12 +25,12 @@ private:
     H5::DataSet                          ds_timestamp_;
     H5::DataSet                          ds_master_joint_;
     H5::DataSet                          ds_ur_joint_;
+    H5::DataSet                          ds_mouse_action_;
     std::map<std::string, H5::DataSet>   ds_images_;
 
     void initDatasets(const SaveData& first);
     void appendRow(const SaveData& data);
 
     std::string        output_path_;
-    int                epoch_count_ = 104;
     std::string generateFilename();
 };

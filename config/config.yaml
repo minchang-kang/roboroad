@@ -16,9 +16,13 @@ fsr:
   pressure_threshold: 0.5
   recv_port: 9090
 
-# ─── Button (Raspberry Pi GPIO → SPRAY 플래그) ────────
-button:
-  port: 5000
+# ─── Mouse (좌클릭 → SPRAY 플래그 + 다이나믹셀 모터 구동) ───
+mouse:
+  device_name: "Logitech USB Optical Mouse"   # /proc/bus/input/devices 의 N: 필드 값
+  motor_id: 10                        # 스프레이 액추에이터 모터 ID
+  goal_current: 200                   # 좌클릭 시 목표 전류 [LSB]
+  port: "/dev/ttyUSB1"                # 모터 10 전용 포트 (6축 로봇과 별도 USB 컨버터)
+  baudrate: 4000000
 
 # ─── UR ──────────────────────────────────────────────
 ur:
@@ -62,9 +66,9 @@ vision:
   cameras:
     - device: "/dev/camera_0"
       role: "front"
-    - device: "/dev/video4"
+    - device: "/dev/camera_d435_1"
       role: "hand"
-    - device: "/dev/video14"
+    - device: "/dev/camera_d435_2"
       role: "back"
 
 # ─── log (CSV 연속 로그, 항상 기록) ─────────────────────

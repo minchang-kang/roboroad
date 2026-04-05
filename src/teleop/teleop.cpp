@@ -3,8 +3,6 @@
 //
 // [Teleop::update]  500Hz 루프에서 호출
 //   마스터(Dynamixel) 관절각 → 축 방향 변환 → EMA 필터 → UR servoJ 명령
-//
-// 레퍼런스: /home/mugun/Desktop/roboroad/src/ur_threads.cpp  ur_servo_thread()
 // ============================================================================
 
 #include "teleop/teleop.h"
@@ -64,12 +62,10 @@ Teleop::~Teleop() = default;
 
 void Teleop::update(const MasterState& master, const SystemFlag& flag)
 {
-    // [임시 수정] FSR 센서 없이 테스트하기 위해 항상 TELEOP 활성화
     if (!hasFlag(flag, SystemFlag::TELEOP))
         return;
 
     URState cmd{};
-    // cmd.timestamp_us = master.timestamp_us;
 
     for (int i = 0; i < 6; i++) {
         // master.joint_angle[i] : DXL 엔코더 → rad (중립 = 0 기준)
