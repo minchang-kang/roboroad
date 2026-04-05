@@ -42,7 +42,7 @@ bool SaveManager::start() {
 
 void SaveManager::initDatasets(const SaveData& first) {
     H5::DSetCreatPropList plist;
-    plist.setDeflate(4);
+    // plist.setDeflate(4);
 
     // ── 스칼라 datasets (timestamp, joint) ──────────────
     {
@@ -237,9 +237,8 @@ void SaveManager::saveBatch(const std::vector<SaveData>& batch) {
         for (size_t i = 0; i < B; i++) {
             auto it = batch[i].frames.find(role);
             if (it == batch[i].frames.end() || it->second.frame.empty()) continue;
-            cv::Mat rgb;
-            cv::cvtColor(it->second.frame, rgb, cv::COLOR_BGR2RGB);
-            std::memcpy(buf.data() + i * (size_t)H * W * 3, rgb.data, (size_t)H * W * 3);
+            std::memcpy(buf.data() + i * (size_t)H * W * 3,
+                        it->second.frame.data, (size_t)H * W * 3);
         }
 
         hsize_t newdims[4] = {n + B, (hsize_t)H, (hsize_t)W, 3};

@@ -25,7 +25,7 @@ public:
     ~Teleop();
 
     // 500Hz 루프에서 호출 — master 상태를 UR 명령으로 변환하여 전송
-    void update(const MasterState& master, const SystemFlag& flag);
+    void update(const MasterState& master, bool teleop_on);
 
     // EMA 필터 초기화 (재시작 시)
     void reset();

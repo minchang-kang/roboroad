@@ -60,9 +60,9 @@ Teleop::~Teleop() = default;
 // update — 500Hz 루프에서 호출
 // ============================================================================
 
-void Teleop::update(const MasterState& master, const SystemFlag& flag)
+void Teleop::update(const MasterState& master, bool teleop_on)
 {
-    if (!hasFlag(flag, SystemFlag::TELEOP))
+    if (!teleop_on)
         return;
 
     URState cmd{};

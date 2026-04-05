@@ -7,7 +7,7 @@ timing:
 
 # ─── Dynamixel ───────────────────────────────────────
 dynamixel:
-  port: "/dev/ttyUSB0"
+  port: "/dev/ttyUSB1"
   baudrate: 4000000
   queue_size: 30
 
@@ -21,7 +21,7 @@ mouse:
   device_name: "Logitech USB Optical Mouse"   # /proc/bus/input/devices 의 N: 필드 값
   motor_id: 10                        # 스프레이 액추에이터 모터 ID
   goal_current: 200                   # 좌클릭 시 목표 전류 [LSB]
-  port: "/dev/ttyUSB1"                # 모터 10 전용 포트 (6축 로봇과 별도 USB 컨버터)
+  port: "/dev/ttyUSB0"                # 모터 10 전용 포트 (6축 로봇과 별도 USB 컨버터)
   baudrate: 4000000
 
 # ─── UR ──────────────────────────────────────────────
@@ -66,9 +66,9 @@ vision:
   cameras:
     - device: "/dev/camera_0"
       role: "front"
-    - device: "/dev/camera_d435_1"
-      role: "hand"
     - device: "/dev/camera_d435_2"
+      role: "hand"
+    - device: "/dev/camera_d435_1"
       role: "back"
 
 # ─── log (CSV 연속 로그, 항상 기록) ─────────────────────

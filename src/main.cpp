@@ -95,28 +95,19 @@ void input_thread_func(SharedContext& ctx) {
 
         char key = getchar();
 
-        std::lock_guard<std::mutex> lock(ctx.flag_mutex);
-
         switch (key) {
             case 'T':
             case 't':
-                if (hasFlag(ctx.system_flag, SystemFlag::TELEOP)) {
-                    ctx.system_flag = clearFlag(ctx.system_flag, SystemFlag::TELEOP);
-                    std::cout << "[input] TELEOP OFF" << std::endl;
-                } else {
-                    ctx.system_flag = setFlag(ctx.system_flag, SystemFlag::TELEOP);
-                    std::cout << "[input] TELEOP ON" << std::endl;
-                }
+                ctx.teleop_on.store(!ctx.teleop_on.load());
+                std::cout << "[input] TELEOP " << (ctx.teleop_on ? "ON" : "OFF") << std::endl;
                 break;
 
             case 'S':
             case 's':
-                if (hasFlag(ctx.system_flag, SystemFlag::SAVING)) {
-                    ctx.system_flag = clearFlag(ctx.system_flag, SystemFlag::SAVING);
-                    std::cout << "[input] SAVING OFF" << std::endl;
-                } else {
-                    ctx.system_flag = setFlag(ctx.system_flag, SystemFlag::SAVING);
-                    std::cout << "[input] SAVING ON" << std::endl;
+                {
+                    std::lock_guard<std::mutex> lock(ctx.save_mutex);
+                    ctx.saving = !ctx.saving;
+                    std::cout << "[input] SAVING " << (ctx.saving ? "ON" : "OFF") << std::endl;
                 }
                 ctx.save_cv.notify_one();
                 break;
@@ -137,22 +128,15 @@ void teleop_thread_func(SharedContext& ctx, URHal& ur, const YAML::Node& config)
         std::this_thread::sleep_until(next);
         next += interval;
 
-        // 1. 플래그 스냅샷
-        SystemFlag flag;
-        {
-            std::lock_guard<std::mutex> lock(ctx.flag_mutex);
-            flag = ctx.system_flag;
-        }
-
-        // 2. master_state 스냅샷
+        // 1. master_state 스냅샷
         MasterState master;
         {
             std::shared_lock lock(ctx.master_mutex);
             master = ctx.master_state;
         }
 
-        // 3. TELEOP ON이면 UR에 servoJ 명령 전송
-        teleop.update(master, flag);
+        // 2. TELEOP ON이면 UR에 servoJ 명령 전송
+        teleop.update(master, ctx.teleop_on.load());
     }
 }
 
@@ -171,12 +155,12 @@ void vision_thread_func(SharedContext& ctx, DiagContext& diag, const YAML::Node&
                         std::chrono::steady_clock::now().time_since_epoch()).count();
                     ctx.vision_queues[role]->push(std::move(fd));
                 } else {
-                    SystemFlag flag;
+                    bool saving;
                     {
-                        std::lock_guard<std::mutex> lock(ctx.flag_mutex);
-                        flag = ctx.system_flag;
+                        std::lock_guard<std::mutex> lock(ctx.save_mutex);
+                        saving = ctx.saving;
                     }
-                    if (hasFlag(flag, SystemFlag::SAVING))
+                    if (saving)
                         diag.record_drop(role);
                 }
             }
@@ -216,13 +200,6 @@ void recorder_thread_func(SharedContext& ctx, const YAML::Node& config) {
             ur = ctx.ur_state;
         }
  
-        // SAVING ON일 때만 HDF5 큐에 추가
-        {
-            std::lock_guard<std::mutex> lock(ctx.flag_mutex);
-            if (!hasFlag(ctx.system_flag, SystemFlag::SAVING))
-                continue;
-        }
- 
         SaveData sd;
         sd.timestamp_us = ref_ts;
         sd.master = master;
@@ -231,13 +208,21 @@ void recorder_thread_func(SharedContext& ctx, const YAML::Node& config) {
             std::lock_guard<std::mutex> lock(ctx.mouse_mutex);
             sd.mouse = ctx.mouse_state;
         }
- 
+
         // 비전: ref_ts에 가장 가까운 프레임을 복사 (큐에서 제거하지 않음)
-        for (auto& [role, queue] : ctx.vision_queues)
+        for (auto& [role, queue] : ctx.vision_queues) {
             queue->peek_closest(ref_ts, sd.frames[role]);
- 
+            if (!sd.frames[role].frame.empty()) {
+                cv::Mat rgb;
+                cv::cvtColor(sd.frames[role].frame, rgb, cv::COLOR_BGR2RGB);
+                sd.frames[role].frame = std::move(rgb);
+            }
+        }
+
+        // SAVING ON일 때만 HDF5 큐에 추가 (saving 체크 + push를 save_mutex로 통합)
         {
             std::lock_guard<std::mutex> lock(ctx.save_mutex);
+            if (!ctx.saving) continue;
             ctx.save_queue.push(std::move(sd));
         }
         ctx.save_cv.notify_one();
@@ -251,39 +236,31 @@ void save_thread_func(SharedContext& ctx, DiagContext& diag, const YAML::Node& c
     SaveManager save_manager(config);
 
     while (running) {
-        // 1. SAVING ON 대기
         std::unique_lock<std::mutex> lock(ctx.save_mutex);
-        ctx.save_cv.wait(lock, [&] {
-            SystemFlag flag;
-            {
-                std::lock_guard<std::mutex> flag_lock(ctx.flag_mutex);
-                flag = ctx.system_flag;
-            }
-            return hasFlag(flag, SystemFlag::SAVING) || !running;
-        });
 
+        // 1. 세션 시작 대기 (saving ON or 종료)
+        ctx.save_cv.wait(lock, [&] {
+            return ctx.saving || !running;
+        });
         if (!running) break;
 
         // 2. 파일 열기
         diag.reset();
+        lock.unlock();
         save_manager.start();
+        lock.lock();
 
-        // write 성능 측정용
         uint64_t write_sum_us = 0, write_min_us = UINT64_MAX, write_max_us = 0;
         uint64_t write_count = 0;
 
-        // 3. SAVING ON인 동안 데이터 처리
-        auto is_saving = [&] {
-            std::lock_guard<std::mutex> fl(ctx.flag_mutex);
-            return hasFlag(ctx.system_flag, SystemFlag::SAVING);
-        };
-
-        while ((is_saving() || !ctx.save_queue.empty()) && running) {
+        // 3. 세션 처리
+        while (running) {
             ctx.save_cv.wait(lock, [&] {
-                return !ctx.save_queue.empty() || !running;
+                return !ctx.save_queue.empty() || !ctx.saving || !running;
             });
 
-            // 큐 전체를 한 번에 수집 후 배치 write
+            if (!ctx.saving && ctx.save_queue.empty()) break;
+
             std::vector<SaveData> batch;
             while (!ctx.save_queue.empty()) {
                 batch.push_back(std::move(ctx.save_queue.front()));
@@ -296,7 +273,6 @@ void save_thread_func(SharedContext& ctx, DiagContext& diag, const YAML::Node& c
                 save_manager.saveBatch(batch);
                 auto elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(
                     std::chrono::steady_clock::now() - t0).count();
-
                 write_sum_us += elapsed_us;
                 write_min_us  = std::min(write_min_us, (uint64_t)elapsed_us);
                 write_max_us  = std::max(write_max_us, (uint64_t)elapsed_us);
@@ -307,6 +283,7 @@ void save_thread_func(SharedContext& ctx, DiagContext& diag, const YAML::Node& c
         }
 
         // 4. 파일 닫기
+        lock.unlock();
         save_manager.stop();
         diag.report();
 

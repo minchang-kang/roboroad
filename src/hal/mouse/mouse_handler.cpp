@@ -173,10 +173,7 @@ void MouseHandler::run(SharedContext& ctx, const std::atomic<bool>& running)
                        + static_cast<uint64_t>(ev.time.tv_usec);
 
         if (ev.value == 1) {
-            {
-                std::lock_guard<std::mutex> lock(ctx.flag_mutex);
-                ctx.system_flag = setFlag(ctx.system_flag, SystemFlag::SPRAY);
-            }
+            ctx.spray_on.store(true);
             {
                 std::lock_guard<std::mutex> lock(ctx.mouse_mutex);
                 ctx.mouse_state = {1, ts_us};
@@ -185,10 +182,7 @@ void MouseHandler::run(SharedContext& ctx, const std::atomic<bool>& running)
             std::cout << "[MouseHandler] SPRAY ON  (motor=" << (int)motor_id_
                       << " cur=" << goal_current_ << ")" << std::endl;
         } else if (ev.value == 0) {
-            {
-                std::lock_guard<std::mutex> lock(ctx.flag_mutex);
-                ctx.system_flag = clearFlag(ctx.system_flag, SystemFlag::SPRAY);
-            }
+            ctx.spray_on.store(false);
             {
                 std::lock_guard<std::mutex> lock(ctx.mouse_mutex);
                 ctx.mouse_state = {0, ts_us};
