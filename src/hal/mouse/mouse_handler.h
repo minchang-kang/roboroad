@@ -24,6 +24,7 @@ public:
 private:
     // 마우스 장치
     std::string device_name_;
+    std::string device_path_;
     int         mouse_fd_ = -1;
 
     // 다이나믹셀 (모터 10 전용 포트)
@@ -31,9 +32,11 @@ private:
     int         baudrate_;
     uint8_t     motor_id_;
     int16_t     goal_current_;
+    int16_t     return_current_;
 
     dynamixel::PortHandler*   port_handler_   = nullptr;
     dynamixel::PacketHandler* packet_handler_ = nullptr;
 
-    bool writeCurrent(int16_t current);
+    bool    writeCurrent(int16_t current);
+    int16_t readCurrent();
 };

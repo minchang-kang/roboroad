@@ -16,6 +16,8 @@ static constexpr uint16_t ADDR_RETURN_DELAY = 9;
 static constexpr uint16_t ADDR_OP_MODE      = 11;
 static constexpr uint16_t ADDR_TORQUE_EN    = 64;
 static constexpr uint16_t ADDR_GOAL_CUR     = 102;
+static constexpr uint16_t ADDR_PRESENT_CUR  = 126;
+static constexpr double   LSB_TO_MA         = 2.69;
 static constexpr uint8_t  MODE_CURRENT_CTRL = 0;
 
 // ============================================================================
@@ -27,7 +29,9 @@ MouseHandler::MouseHandler(const YAML::Node& config)
     , port_        (config["mouse"]["port"].as<std::string>())
     , baudrate_    (config["mouse"]["baudrate"].as<int>(4000000))
     , motor_id_    (config["mouse"]["motor_id"].as<uint8_t>(10))
-    , goal_current_(config["mouse"]["goal_current"].as<int16_t>(200))
+    , device_path_    (config["mouse"]["device_path"].as<std::string>(""))
+    , goal_current_   (config["mouse"]["goal_current"].as<int16_t>(200))
+    , return_current_ (config["mouse"]["return_current"].as<int16_t>(100))
 {}
 
 // ============================================================================
@@ -82,11 +86,15 @@ bool MouseHandler::init()
 {
     // ── 마우스 장치 열기 ────────────────────────────────────────────────────
     std::string path;
-    try {
-        path = findDevicePath(device_name_);
-    } catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
-        return false;
+    if (!device_path_.empty()) {
+        path = device_path_;
+    } else {
+        try {
+            path = findDevicePath(device_name_);
+        } catch (const std::exception& e) {
+            std::cerr << e.what() << std::endl;
+            return false;
+        }
     }
     std::cout << "[MouseHandler] 마우스 장치: " << path << std::endl;
 
@@ -143,6 +151,15 @@ bool MouseHandler::writeCurrent(int16_t current)
         static_cast<uint16_t>(current), &err) == COMM_SUCCESS;
 }
 
+int16_t MouseHandler::readCurrent()
+{
+    uint16_t raw = 0;
+    uint8_t  err = 0;
+    packet_handler_->read2ByteTxRx(
+        port_handler_, motor_id_, ADDR_PRESENT_CUR, &raw, &err);
+    return static_cast<int16_t>(raw);
+}
+
 // ============================================================================
 // run — 좌클릭 press → SPRAY ON + 모터 구동 / release → SPRAY OFF + 모터 정지
 // ============================================================================
@@ -179,16 +196,21 @@ void MouseHandler::run(SharedContext& ctx, const std::atomic<bool>& running)
                 ctx.mouse_state = {1, ts_us};
             }
             writeCurrent(goal_current_);
-            std::cout << "[MouseHandler] SPRAY ON  (motor=" << (int)motor_id_
-                      << " cur=" << goal_current_ << ")" << std::endl;
+            int16_t present = readCurrent();
+            std::cout << "[MouseHandler] SPRAY ON\n"
+                      << "  Goal current set: " << goal_current_
+                      << " unit = " << goal_current_ * LSB_TO_MA << " mA\n"
+                      << "  Present current:  " << present
+                      << " unit = " << present * LSB_TO_MA << " mA" << std::endl;
         } else if (ev.value == 0) {
             ctx.spray_on.store(false);
             {
                 std::lock_guard<std::mutex> lock(ctx.mouse_mutex);
                 ctx.mouse_state = {0, ts_us};
             }
-            writeCurrent(0);
-            std::cout << "[MouseHandler] SPRAY OFF (motor=" << (int)motor_id_ << ")" << std::endl;
+            writeCurrent(-return_current_);
+            std::cout << "[MouseHandler] SPRAY OFF (motor=" << (int)motor_id_
+                      << " return_cur=-" << return_current_ << ")" << std::endl;
         }
     }
 }

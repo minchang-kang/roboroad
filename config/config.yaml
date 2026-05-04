@@ -7,7 +7,7 @@ timing:
 
 # ─── Dynamixel ───────────────────────────────────────
 dynamixel:
-  port: "/dev/ttyUSB1"
+  port: "/dev/ttyUSB2"
   baudrate: 4000000
   queue_size: 30
 
@@ -18,10 +18,12 @@ fsr:
 
 # ─── Mouse (좌클릭 → SPRAY 플래그 + 다이나믹셀 모터 구동) ───
 mouse:
-  device_name: "Logitech USB Optical Mouse"   # /proc/bus/input/devices 의 N: 필드 값
-  motor_id: 10                        # 스프레이 액추에이터 모터 ID
-  goal_current: 200                   # 좌클릭 시 목표 전류 [LSB]
-  port: "/dev/ttyUSB0"                # 모터 10 전용 포트 (6축 로봇과 별도 USB 컨버터)
+  device_name: "Compx ATK Mouse 8K Dongle Mouse"   # /proc/bus/input/devices 의 N: 필드 값
+  device_path: "/dev/input/event28"               # 직접 경로 지정 (있으면 device_name 무시)
+  motor_id: 2                         # 스프레이 액추에이터 모터 ID
+  goal_current: 7                     # 좌클릭 시 목표 전류 [LSB] (18.83 mA)
+  return_current: 3                   # 손 뗄 때 복귀 전류 [LSB] (역방향)
+  port: "/dev/ttyUSB0"                # 모터 전용 포트 (6축 로봇과 별도 USB 컨버터)
   baudrate: 4000000
 
 # ─── UR ──────────────────────────────────────────────
@@ -64,11 +66,11 @@ vision:
   fps: 30
   queue_size: 30
   cameras:
-    - device: "/dev/camera_0"
+    - device: "/dev/video6"
       role: "front"
-    - device: "/dev/camera_d435_2"
+    - device: "/dev/video12"
       role: "hand"
-    - device: "/dev/camera_d435_1"
+    - device: "/dev/video18"
       role: "back"
 
 # ─── log (CSV 연속 로그, 항상 기록) ─────────────────────
