@@ -37,6 +37,5 @@ private:
     dynamixel::PortHandler*   port_handler_   = nullptr;
     dynamixel::PacketHandler* packet_handler_ = nullptr;
 
-    bool    writeCurrent(int16_t current);
-    int16_t readCurrent();
+    bool writeCurrent(int16_t current);
 };

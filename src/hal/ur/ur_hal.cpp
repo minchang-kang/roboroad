@@ -24,7 +24,7 @@
 
 URHal::URHal(const YAML::Node& config)
     : ip_(config["ur"]["ip"].as<std::string>())
-    , servoj_dt_(0.002)              // 500Hz 주기
+    , servoj_dt_(1.0 / config["timing"]["teleop_loop_hz"].as<double>(125.0))
     , servoj_lookahead_time_(0.05)
     , servoj_gain_(700.0)
 {
@@ -63,7 +63,8 @@ URHal::~URHal()
 bool URHal::init()
 {
     try {
-        rtde_control_ = std::make_unique<ur_rtde::RTDEControlInterface>(ip_);
+        double control_hz = 1.0 / servoj_dt_;
+        rtde_control_ = std::make_unique<ur_rtde::RTDEControlInterface>(ip_, control_hz);
         rtde_receive_ = std::make_unique<ur_rtde::RTDEReceiveInterface>(ip_);
 
         int64_t ur_us  = static_cast<int64_t>(rtde_receive_->getTimestamp() * 1e6);

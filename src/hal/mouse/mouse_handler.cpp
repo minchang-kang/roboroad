@@ -145,19 +145,9 @@ bool MouseHandler::init()
 
 bool MouseHandler::writeCurrent(int16_t current)
 {
-    uint8_t err = 0;
-    return packet_handler_->write2ByteTxRx(
+    return packet_handler_->write2ByteTxOnly(
         port_handler_, motor_id_, ADDR_GOAL_CUR,
-        static_cast<uint16_t>(current), &err) == COMM_SUCCESS;
-}
-
-int16_t MouseHandler::readCurrent()
-{
-    uint16_t raw = 0;
-    uint8_t  err = 0;
-    packet_handler_->read2ByteTxRx(
-        port_handler_, motor_id_, ADDR_PRESENT_CUR, &raw, &err);
-    return static_cast<int16_t>(raw);
+        static_cast<uint16_t>(current)) == COMM_SUCCESS;
 }
 
 // ============================================================================
@@ -196,12 +186,8 @@ void MouseHandler::run(SharedContext& ctx, const std::atomic<bool>& running)
                 ctx.mouse_state = {1, ts_us};
             }
             writeCurrent(goal_current_);
-            int16_t present = readCurrent();
-            std::cout << "[MouseHandler] SPRAY ON\n"
-                      << "  Goal current set: " << goal_current_
-                      << " unit = " << goal_current_ * LSB_TO_MA << " mA\n"
-                      << "  Present current:  " << present
-                      << " unit = " << present * LSB_TO_MA << " mA" << std::endl;
+            std::cout << "[MouseHandler] SPRAY ON (goal=" << goal_current_
+                      << " / " << goal_current_ * LSB_TO_MA << " mA)" << std::endl;
         } else if (ev.value == 0) {
             ctx.spray_on.store(false);
             {

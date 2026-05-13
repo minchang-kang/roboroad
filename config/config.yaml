@@ -1,13 +1,13 @@
 # ─── RT / 타이밍 ──────────────────────────────────────
 timing:
   gc_loop_hz: 250
-  teleop_loop_hz: 500
+  teleop_loop_hz: 125
   rtde_loop_hz: 500
   recorder_loop_hz: 30
 
 # ─── Dynamixel ───────────────────────────────────────
 dynamixel:
-  port: "/dev/ttyUSB2"
+  port: "/dev/ttyUSB0"
   baudrate: 4000000
   queue_size: 30
 
@@ -18,12 +18,12 @@ fsr:
 
 # ─── Mouse (좌클릭 → SPRAY 플래그 + 다이나믹셀 모터 구동) ───
 mouse:
-  device_name: "Compx ATK Mouse 8K Dongle Mouse"   # /proc/bus/input/devices 의 N: 필드 값
-  device_path: "/dev/input/event28"               # 직접 경로 지정 (있으면 device_name 무시)
+  device_name: "YICHIP Wireless Device Mouse"   # /proc/bus/input/devices 의 N: 필드 값
+  device_path: "/dev/input/event14"               # 직접 경로 지정 (있으면 device_name 무시)
   motor_id: 2                         # 스프레이 액추에이터 모터 ID
   goal_current: 7                     # 좌클릭 시 목표 전류 [LSB] (18.83 mA)
   return_current: 3                   # 손 뗄 때 복귀 전류 [LSB] (역방향)
-  port: "/dev/ttyUSB0"                # 모터 전용 포트 (6축 로봇과 별도 USB 컨버터)
+  port: "/dev/ttyUSB1"                # 모터 전용 포트 (6축 로봇과 별도 USB 컨버터)
   baudrate: 4000000
 
 # ─── UR ──────────────────────────────────────────────
@@ -49,15 +49,15 @@ teleop:
 # ─── GC ──────────────────────────────────────────────
 gc:
   urdf_path: "./URDF/####UR3e_Master_Device/urdf/####UR3e_Master_Device.urdf"
-  gravity_gain: [1, 0.8, 1, 1, 1, 1]
+  gravity_gain: [0.7, 0.52, 0.58, 0, 0, 0]
   # DXL CCW = URDF + 방향이면 1, 반대면 -1
   joint_direction: [1, -1, -1, 1, 1, 1]
   # 축별 안전 게인 (0~1)
   current_gain: [0.8, 0.8, 0.8, 0.8, 0.8, 0.8]
   # 모터 토크 상수 Kt [Nm/A]
-  kt: [1.37, 1.37, 1.30, 1.30, 1.30, 1.30]
+  kt: [1.37, 1.37, 1.37, 1.37, 1.37, 1.37]
   # 축별 전류 한계 [raw LSB]
-  cur_limit: [1000, 1000, 800, 800, 800, 800]
+  cur_limit: [1000, 1000, 1000, 1000, 1000, 1000]
 
 # ─── Vision ──────────────────────────────────────────
 vision:
@@ -66,12 +66,12 @@ vision:
   fps: 30
   queue_size: 30
   cameras:
-    - device: "/dev/video6"
+    - device: "/dev/cam_front"
       role: "front"
-    - device: "/dev/video12"
+    - device: "/dev/cam_hand"
       role: "hand"
-    - device: "/dev/video18"
-      role: "back"
+    - device: "/dev/cam_top"
+      role: "top"
 
 # ─── log (CSV 연속 로그, 항상 기록) ─────────────────────
 log:
@@ -79,4 +79,4 @@ log:
 
 # ─── output (HDF5 저장, SAVING 플래그 ON 시에만) ─────────
 output:
-  path: "output/"
+  path: "/media/min/ORICO/data_not_good_0514/"

@@ -84,7 +84,7 @@ void SaveManager::initDatasets(const SaveData& first) {
 
         hsize_t init[4] = {0, (hsize_t)H, (hsize_t)W, 3};
         hsize_t max[4]  = {H5S_UNLIMITED, (hsize_t)H, (hsize_t)W, 3};
-        hsize_t chunk[4]= {1, (hsize_t)H, (hsize_t)W, 3};
+        hsize_t chunk[4]= {4, (hsize_t)H, (hsize_t)W, 3};
         plist.setChunk(4, chunk);
 
         H5::DataSpace sp(4, init, max);
@@ -252,6 +252,9 @@ void SaveManager::saveBatch(const std::vector<SaveData>& batch) {
     }
 
     frame_count_ += B;
+
+    // 녹화 중 write를 분산 → stop() 시 한꺼번에 flush되는 80s 스파이크 방지
+    H5Fflush(file_.getId(), H5F_SCOPE_LOCAL);
 }
 
 void SaveManager::stop() {

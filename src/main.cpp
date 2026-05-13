@@ -30,6 +30,7 @@ void recorder_thread_func(SharedContext& ctx, const YAML::Node& config);
 void save_thread_func(SharedContext& ctx, DiagContext& diag, const YAML::Node& config);
 void input_thread_func(SharedContext& ctx);
 void mouse_thread_func(SharedContext& ctx, const YAML::Node& config);
+// void display_thread_func(SharedContext& ctx);
 
 int main() {
     // ─── 시그널 등록 ─────────────────────────────────
@@ -66,6 +67,7 @@ int main() {
     std::thread save_thread(save_thread_func, std::ref(ctx), std::ref(diag), std::cref(config));
     std::thread input_thread(input_thread_func, std::ref(ctx));
     std::thread mouse_thread(mouse_thread_func, std::ref(ctx), std::cref(config));
+    // std::thread display_thread(display_thread_func, std::ref(ctx));
 
     // ─── 종료 대기 ───────────────────────────────────
     rt_task.stop();
@@ -76,6 +78,7 @@ int main() {
     save_thread.join();
     input_thread.join();
     mouse_thread.join();
+    // display_thread.join();
 
     // ─── 종료 처리 ───────────────────────────────────
     dynamixel.close();
@@ -330,3 +333,21 @@ void mouse_thread_func(SharedContext& ctx, const YAML::Node& config) {
     mouse.run(ctx, running);
     mouse.close();
 }
+
+// void display_thread_func(SharedContext& ctx) {
+//     if (!ctx.vision_queues.count("top")) return;
+
+//     cv::namedWindow("top", cv::WINDOW_NORMAL);
+//     while (running) {
+//         FrameData fd;
+//         uint64_t now = std::chrono::duration_cast<std::chrono::microseconds>(
+//             std::chrono::steady_clock::now().time_since_epoch()).count();
+
+//         if (ctx.vision_queues["top"]->peek_closest(now, fd) && !fd.frame.empty())
+//             cv::imshow("top", fd.frame);
+
+//         if (cv::waitKey(33) == 27)
+//             running = false;
+//     }
+//     cv::destroyAllWindows();
+// }
